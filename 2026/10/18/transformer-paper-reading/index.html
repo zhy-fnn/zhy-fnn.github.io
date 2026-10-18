@@ -1,0 +1,429 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width">
+<meta name="theme-color" content="#222" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#222" media="(prefers-color-scheme: dark)"><meta name="generator" content="Hexo 7.0.0">
+
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32-next.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16-next.png">
+  <link rel="mask-icon" href="/images/logo.svg" color="#222">
+
+<link rel="stylesheet" href="/css/main.css">
+
+
+
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/7.0.0/css/all.min.css" integrity="sha256-VHqXKFhhMxcpubYf9xiWdCiojEbY9NexQ4jh8AxbvcM=" crossorigin="anonymous">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/animate.css/3.1.1/animate.min.css" integrity="sha256-PR7ttpcvz8qrF57fur/yAx1qXMFJeJFiA6pSzWi0OIE=" crossorigin="anonymous">
+
+<script class="next-config" data-name="main" type="application/json">{"hostname":"zhy-fnn.github.io","root":"/","images":"/images","scheme":"Gemini","darkmode":true,"version":"8.29.0","exturl":false,"sidebar":{"position":"left","width_expanded":320,"width_dual_column":240,"display":"always","padding":18,"offset":12},"hljswrap":true,"codeblock":{"theme":{"light":"default","dark":"stackoverflow-dark"},"prism":{"light":"prism","dark":"prism-dark"},"copy_button":{"enable":false,"style":null},"fold":{"enable":false,"height":500},"language":false},"bookmark":{"enable":false,"color":"#222","save":"auto"},"mediumzoom":false,"pangu":false,"comments":{"style":"tabs","active":null,"storage":true,"lazyload":false,"nav":null},"stickytabs":false,"motion":{"enable":true,"async":false,"duration":200,"transition":{"menu_item":"fadeInDown","post_block":"fadeIn","post_header":"fadeInDown","post_body":"fadeInDown","coll_header":"fadeInLeft","sidebar":"fadeInUp"}},"i18n":{"placeholder":"搜索...","empty":"没有找到任何搜索结果：${query}","hits_time":"找到 ${hits} 个搜索结果（用时 ${time} 毫秒）","hits":"找到 ${hits} 个搜索结果"}}</script><script src="/js/config.js" defer></script>
+
+    <meta name="description" content="从 Attention Is All You Need 的逐段阅读出发，梳理 Transformer 的编码器、解码器与训练细节，并对照 BERT、GPT-2 与 T5 三条架构路线。">
+<meta property="og:type" content="article">
+<meta property="og:title" content="登神长阶：Transformer 论文精读">
+<meta property="og:url" content="https://zhy-fnn.github.io/2026/10/18/transformer-paper-reading/index.html">
+<meta property="og:site_name" content="zhy-fnn">
+<meta property="og:description" content="从 Attention Is All You Need 的逐段阅读出发，梳理 Transformer 的编码器、解码器与训练细节，并对照 BERT、GPT-2 与 T5 三条架构路线。">
+<meta property="og:locale" content="zh_CN">
+<meta property="og:image" content="https://zhy-fnn.github.io/images/transformer/transformer-architecture.png">
+<meta property="og:image" content="https://zhy-fnn.github.io/images/transformer/scaled-dot-product-attention.png">
+<meta property="og:image" content="https://zhy-fnn.github.io/images/transformer/multi-head-attention.png">
+<meta property="article:published_time" content="2026-10-18T05:45:00.000Z">
+<meta property="article:modified_time" content="2026-10-18T05:43:14.233Z">
+<meta property="article:author" content="zhy-fnn">
+<meta property="article:tag" content="Transformer">
+<meta property="article:tag" content="NLP">
+<meta property="article:tag" content="论文精读">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:image" content="https://zhy-fnn.github.io/images/transformer/transformer-architecture.png">
+
+
+<link rel="canonical" href="https://zhy-fnn.github.io/2026/10/18/transformer-paper-reading/">
+
+
+<script class="next-config" data-name="page" type="application/json">{"sidebar":"","isHome":false,"isPost":true,"lang":"zh-CN","comments":true,"permalink":"https://zhy-fnn.github.io/2026/10/18/transformer-paper-reading/","path":"2026/10/18/transformer-paper-reading/","title":"登神长阶：Transformer 论文精读"}</script>
+
+<script class="next-config" data-name="calendar" type="application/json">""</script>
+<title>登神长阶：Transformer 论文精读 | zhy-fnn</title>
+  
+
+
+
+
+
+
+
+
+  
+<script src="/js/utils.js" defer></script><script src="/js/motion.js" defer></script><script src="/js/sidebar.js" defer></script><script src="/js/next-boot.js" defer></script>
+
+  
+
+
+
+
+
+
+  
+
+
+
+
+  
+
+  <script class="next-config" data-name="enableMath" type="application/json">true</script><script class="next-config" data-name="mathjax" type="application/json">{"enable":true,"tags":"none","display_overflow":"scroll","js":{"url":"https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-mml-chtml.js","integrity":"sha256-ihPtDDm7pTmSF9ViEsItlvsrBTsNkz0MOXMchzOwCQw="}}</script>
+<script src="/js/third-party/math/mathjax.js" defer></script>
+
+
+
+  <noscript>
+    <link rel="stylesheet" href="/css/noscript.css">
+  </noscript>
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage" class="use-motion">
+  <div class="headband"></div>
+
+  <main class="main">
+    <div class="column">
+      <header class="header" itemscope itemtype="http://schema.org/WPHeader"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="切换导航栏" role="button">
+        <span class="toggle-line"></span>
+        <span class="toggle-line"></span>
+        <span class="toggle-line"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <a href="/" class="brand" rel="start">
+      <i class="logo-line"></i>
+      <p class="site-title">zhy-fnn</p>
+      <i class="logo-line"></i>
+    </a>
+      <p class="site-subtitle" itemprop="description">Future-Oriented Programming-FOP</p>
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger" aria-label="搜索" role="button">
+    </div>
+  </div>
+</div>
+
+
+
+<nav class="site-nav">
+  <ul class="main-menu menu"><li class="menu-item menu-item-home"><a href="/" rel="section"><i class="fa fa-home fa-fw"></i>首页</a></li><li class="menu-item menu-item-文章导览"><a href="/guide/" rel="section"><i class="fa fa-compass fa-fw"></i>文章导览</a></li><li class="menu-item menu-item-categories"><a href="/categories/" rel="section"><i class="fa fa-th fa-fw"></i>分类</a></li><li class="menu-item menu-item-tags"><a href="/tags/" rel="section"><i class="fa fa-tags fa-fw"></i>标签</a></li><li class="menu-item menu-item-archives"><a href="/archives/" rel="section"><i class="fa fa-archive fa-fw"></i>归档</a></li><li class="menu-item menu-item-about"><a href="/about/" rel="section"><i class="fa fa-user fa-fw"></i>关于</a></li>
+  </ul>
+</nav>
+
+
+
+
+</header>
+        
+  
+  <aside class="sidebar">
+
+    <div class="sidebar-inner sidebar-nav-active sidebar-toc-active">
+      <ul class="sidebar-nav">
+        <li class="sidebar-nav-toc">
+          文章目录
+        </li>
+        <li class="sidebar-nav-overview">
+          站点概览
+        </li>
+      </ul>
+
+      <div class="sidebar-panel-container">
+        <!--noindex-->
+        <div class="post-toc-wrap sidebar-panel">
+            <div class="post-toc animated"><ol class="nav"><li class="nav-item nav-level-2"><a class="nav-link" href="#%E4%B8%80%E3%80%81%E5%BD%93%E6%97%B6%E5%8F%AA%E9%81%93%E6%98%AF%E5%AF%BB%E5%B8%B8"><span class="nav-number">1.</span> <span class="nav-text">一、当时只道是寻常</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#abstract"><span class="nav-number">1.1.</span> <span class="nav-text">abstract</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#intro"><span class="nav-number">1.2.</span> <span class="nav-text">intro</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#background"><span class="nav-number">1.3.</span> <span class="nav-text">background</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#conclusion"><span class="nav-number">1.4.</span> <span class="nav-text">conclusion</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#%E5%B0%8F%E7%BB%93"><span class="nav-number">1.5.</span> <span class="nav-text">小结</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#model-architecture"><span class="nav-number">1.6.</span> <span class="nav-text">model architecture</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#WHY-attention"><span class="nav-number">1.7.</span> <span class="nav-text">WHY attention</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#train"><span class="nav-number">1.8.</span> <span class="nav-text">train</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#result"><span class="nav-number">1.9.</span> <span class="nav-text">result</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E5%B0%8F%E7%BB%93-1"><span class="nav-number">2.</span> <span class="nav-text">小结</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E4%BA%8C%E3%80%81%E4%B8%80%E6%BB%B4%E6%B0%B4%E6%B5%81%E5%85%A5%E4%B8%BD%E6%B1%9F"><span class="nav-number">3.</span> <span class="nav-text">二、一滴水流入丽江</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#encoder"><span class="nav-number">3.1.</span> <span class="nav-text">encoder</span></a><ol class="nav-child"><li class="nav-item nav-level-4"><a class="nav-link" href="#word-embedding"><span class="nav-number">3.1.1.</span> <span class="nav-text">word embedding</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#positional-encoding"><span class="nav-number">3.1.2.</span> <span class="nav-text">positional encoding</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#multi-head-attention-MHA"><span class="nav-number">3.1.3.</span> <span class="nav-text">multi-head attention (MHA)</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#Add-Norm"><span class="nav-number">3.1.4.</span> <span class="nav-text">Add &amp; Norm</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#position-wise-feed-forward-network-FFN"><span class="nav-number">3.1.5.</span> <span class="nav-text">position-wise feed-forward network (FFN)</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#%E5%B0%8F%E7%BB%93-2"><span class="nav-number">3.1.6.</span> <span class="nav-text">小结</span></a></li></ol></li><li class="nav-item nav-level-3"><a class="nav-link" href="#decoder"><span class="nav-number">3.2.</span> <span class="nav-text">decoder</span></a><ol class="nav-child"><li class="nav-item nav-level-4"><a class="nav-link" href="#word-embedding-1"><span class="nav-number">3.2.1.</span> <span class="nav-text">word embedding</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#Masked-MHA"><span class="nav-number">3.2.2.</span> <span class="nav-text">Masked MHA</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#Add-Norm-1"><span class="nav-number">3.2.3.</span> <span class="nav-text">Add &amp; Norm</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#cross-attention"><span class="nav-number">3.2.4.</span> <span class="nav-text">cross attention</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#position-wise-feed-forward-network"><span class="nav-number">3.2.5.</span> <span class="nav-text">position-wise feed-forward network</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#%E5%B0%8F%E7%BB%93-3"><span class="nav-number">3.2.6.</span> <span class="nav-text">小结</span></a></li></ol></li><li class="nav-item nav-level-3"><a class="nav-link" href="#classification"><span class="nav-number">3.3.</span> <span class="nav-text">classification</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E4%B8%89%E3%80%81%E6%98%A8%E5%A4%A9%E3%80%81%E4%BB%8A%E5%A4%A9%E3%80%81%E6%98%8E%E5%A4%A9"><span class="nav-number">4.</span> <span class="nav-text">三、昨天、今天、明天</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#%E7%BB%9F%E4%B8%80%E6%80%9D%E6%83%B3"><span class="nav-number">4.1.</span> <span class="nav-text">统一思想</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#BERT%E2%80%94%E2%80%94Encoder-Only"><span class="nav-number">4.2.</span> <span class="nav-text">BERT——Encoder-Only</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#GPT-2%E2%80%94%E2%80%94Decoder-Only"><span class="nav-number">4.3.</span> <span class="nav-text">GPT-2——Decoder-Only</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#T5%E2%80%94%E2%80%94Encoder-Decoder%E6%9E%B6%E6%9E%84%E6%9C%80%E5%90%8E%E7%9A%84%E6%8C%BD%E6%AD%8C"><span class="nav-number">4.4.</span> <span class="nav-text">T5——Encoder-Decoder架构最后的挽歌</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#%E5%B0%8F%E7%BB%93-4"><span class="nav-number">4.5.</span> <span class="nav-text">小结</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E5%BC%95%E7%94%A8"><span class="nav-number">5.</span> <span class="nav-text">引用</span></a></li></ol></div>
+        </div>
+        <!--/noindex-->
+
+        <div class="site-overview-wrap sidebar-panel">
+          <div class="site-author animated" itemprop="author" itemscope itemtype="http://schema.org/Person">
+    <img class="site-author-image" itemprop="image" alt="zhy-fnn"
+      src="https://avatars.githubusercontent.com/u/182390613?v=4">
+  <p class="site-author-name" itemprop="name">zhy-fnn</p>
+  <div class="site-description" itemprop="description"></div>
+</div>
+<div class="site-state-wrap animated">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+        <a href="/archives/">
+          <span class="site-state-item-count">4</span>
+          <span class="site-state-item-name">日志</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-categories">
+          <a href="/categories/">
+        <span class="site-state-item-count">3</span>
+        <span class="site-state-item-name">分类</span></a>
+      </div>
+      <div class="site-state-item site-state-tags">
+          <a href="/tags/">
+        <span class="site-state-item-count">8</span>
+        <span class="site-state-item-name">标签</span></a>
+      </div>
+  </nav>
+</div>
+  <div class="links-of-author animated">
+      <span class="links-of-author-item">
+        <a href="https://github.com/zhy-fnn" title="GitHub → https:&#x2F;&#x2F;github.com&#x2F;zhy-fnn" rel="noopener me" target="_blank"><i class="fab fa-github fa-fw"></i>GitHub</a>
+      </span>
+  </div>
+
+        </div>
+      </div>
+    </div>
+
+    
+  </aside>
+
+
+    </div>
+
+    <div class="main-inner post posts-expand">
+
+
+  
+
+
+<div class="post-block">
+  
+  
+
+  <article itemscope itemtype="http://schema.org/Article" class="post-content" lang="zh-CN">
+    <link itemprop="mainEntityOfPage" href="https://zhy-fnn.github.io/2026/10/18/transformer-paper-reading/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="https://avatars.githubusercontent.com/u/182390613?v=4">
+      <meta itemprop="name" content="zhy-fnn">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="zhy-fnn">
+      <meta itemprop="description" content="">
+    </span>
+
+    <span hidden itemprop="post" itemscope itemtype="http://schema.org/CreativeWork">
+      <meta itemprop="name" content="登神长阶：Transformer 论文精读 | zhy-fnn">
+      <meta itemprop="description" content="从 Attention Is All You Need 的逐段阅读出发，梳理 Transformer 的编码器、解码器与训练细节，并对照 BERT、GPT-2 与 T5 三条架构路线。">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          登神长阶：Transformer 论文精读
+        </h1>
+
+        <div class="post-meta-container">
+          <div class="post-meta">
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-calendar"></i>
+      </span>
+      <span class="post-meta-item-text">发表于</span>
+      
+
+      <time title="创建时间：2026-10-18 13:45:00 / 修改时间：13:43:14" itemprop="dateCreated datePublished" datetime="2026-10-18T13:45:00+08:00">2026-10-18</time>
+    </span>
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-folder"></i>
+      </span>
+      <span class="post-meta-item-text">分类于</span>
+        <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+          <a href="/categories/%E8%AE%BA%E6%96%87%E7%B2%BE%E8%AF%BB/" itemprop="url" rel="index"><span itemprop="name">论文精读</span></a>
+        </span>
+    </span>
+
+  
+</div>
+
+            <div class="post-description">从 Attention Is All You Need 的逐段阅读出发，梳理 Transformer 的编码器、解码器与训练细节，并对照 BERT、GPT-2 与 T5 三条架构路线。</div>
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody"><blockquote>
+<p>本文第一章将以一个初看到transformer论文者的视角从abstract-&gt;intro-&gt;background-&gt;conclusion-&gt;model-&gt;WHY attention-&gt;training-&gt;results的通读全流程，建立对transformer的直觉感受。第二章将以一个token的视角，串联起模型的每个层，讲清楚公式与推导。第三章将综合多篇论文，介绍transformer出来前后的前世今生。</p>
+</blockquote>
+<h2 id="一、当时只道是寻常"><a href="#一、当时只道是寻常" class="headerlink" title="一、当时只道是寻常"></a>一、当时只道是寻常</h2><p>当时的Google只把这个模型用来做机器翻译，却不知道这之后将兴起什么轩然大波。</p>
+<p>一开始我们拿到论文一定是先泛读abstract、intro、background、conclusion这四章，看看它是否符合兴趣和研究方向。在每一章我们要主动地去读而不是被动地接受信息：</p>
+<p>在abstract里我们要问，作者的创新点是什么？有什么数据支撑。</p>
+<p>在intro我们要问，前人做了什么工作，还有什么不足。</p>
+<p>在background我们要问，作者把谁当靶子，它的痛点是什么。</p>
+<p>在conclusion我们要问，作者对未来的展望是什么，又或者这种模型还有什么缺陷供后人研究。</p>
+<p>如此，我们就能快速找到文章主干，并判断这篇文章究竟是否适合自己。</p>
+<h3 id="abstract"><a href="#abstract" class="headerlink" title="abstract"></a>abstract</h3><p>作为全文的总结，摘要部分介绍了transformer模型的三个特点：①仅使用注意力机制，并且做到了比传统CNN、RNN模型更好的机器翻译效果（高出2个BLEU（一种评价模型预测与已知序列的方法））。②高并行使得它的训练时间更少。③并且把模型放在机器翻译以外的NLP方向也能work。</p>
+<h3 id="intro"><a href="#intro" class="headerlink" title="intro"></a>intro</h3><p>之前主要的机器翻译模型都是以encoder-decoder架构为主轴，以RNN为隐藏层。RNN每次把之前输出的隐藏层向量 $h_{t-1}$和现在的向量t并在一起作为新一轮的输入，进神经网络。这种RNN的架构导致两个痛点：①并行效果差②时序信息易丢失。也就是说在RNN里后一个预测必须等前一个向量算完才能进行计算，并且相隔过远的向量之间的信息传递容易丢失。</p>
+<p>之前已经有模型把注意力机制用在机器翻译上了，只不过是用来连接encoder和decoder，给RNN打下手。</p>
+<h3 id="background"><a href="#background" class="headerlink" title="background"></a>background</h3><p>人们早就意识到RNN的架构会导致距离过长的信息无法传递，并对此做出了许多努力如ByteNet、ConvS2S，它们都以卷积神经网络作为隐藏层建模，确实加快了传递效率，如ByteNet传递信息是对数增长、ConvS2S是线性增长。但作者在这里提出的注意力机制能在常数次内使得长程信息得到传递，并且注意力机制在NLP领域已经有所应用，只不过transformer是第一个仅用注意力机制处理时序信息的模型。</p>
+<p>所以transformer的靶子就是ByteNet和ConvS2S这种脱离了RNN架构的新模型，它们虽然有过优化，RNN与CNN的底层逻辑导致无法在常数次传递信息。</p>
+<h3 id="conclusion"><a href="#conclusion" class="headerlink" title="conclusion"></a>conclusion</h3><p>transformer是第一个仅用注意力机制进行序列转换的模型，并且由于attention层的高并行，使得它的计算快、效果好，在最后，作者还预言这种模型将被应用在图像、听觉、视频的多领域。</p>
+<h3 id="小结"><a href="#小结" class="headerlink" title="小结"></a>小结</h3><p>如果作为泛读的论文，我们已经能看出这篇文章的特点了：简洁、克制。这也是合理的，因为作者在模型层提出了太多太多新东西了，如果不这么写会议论文根本放不下。</p>
+<p>在这里，我们就应该能得到作者的写作目的了，他的靶子是以RNN为隐藏层架构的机器翻译模型，这种模型的痛点是①容易忘记长程信息②并行计算效果差。而作者提出的transformer架构，通过直接摒弃RNN解决了这两个痛点，并且做到了和之前最好架构一样甚至更好的效果（EN-DE的BLEU分数从26.36提升至28.4），26.36是ConvS2S经过ensemble的结果，这更体现了transformer的含金量。</p>
+<h3 id="model-architecture"><a href="#model-architecture" class="headerlink" title="model architecture"></a>model architecture</h3><p>这里我只会将一些直觉上的东西，关于更深的方面交给下一章。</p>
+<p>当时绝大多数模型都是encoder-decoder架构，input输入进encoder，让右移一位的输入进decoder作为新一轮的输入，transformer也不例外。</p>
+<p>主要用两个子层架构全部模型，一个是自注意力层，一个是FFN也就是MLP。每次input输入进encoder在经历过若干轮 <strong>注意力层-&gt;FFN-&gt;注意力层-&gt;FFN……</strong> 后把输出给decoder。decoder一开始有一个空白向量代表输出开始，经历 <strong>注意力层-&gt;交叉注意力层-&gt;FFN-&gt;……</strong> 之后输出一个token，再把这个token作为decoder的输入再跑一轮得到输出，如此循环往复。</p>
+<p>这里的attention层仅仅计算不同向量之间的相似度，也就是引导模型应该把注意力放在哪。</p>
+<p>也就是说，encoder的注意力层用来学习输入的时序特征，FFN用来学习单个token的特征，而decoder的注意力层用来学习之前输出的token的特征，交叉注意力层把这两个特征集合起来，再交给decoder的FFN去学习单个特征，这就是transformer这张图的主要流程。</p>
+<p><img src="/images/transformer/transformer-architecture.png" alt="Transformer 整体架构（原论文 Figure 1）"></p>
+<h3 id="WHY-attention"><a href="#WHY-attention" class="headerlink" title="WHY attention"></a>WHY attention</h3><p>由于注意力层的机制（在第二章详述），使得它在层计算复杂度、可并行计算的数量、长范围信息传递所需要的步数这三个方面相较于之前的卷积和RNN架构有明显优势。相比较上述两种模型，我们更能理解每个注意力层是去了解输入的不同特征，因此注意力机制的可解释性也较好。</p>
+<h3 id="train"><a href="#train" class="headerlink" title="train"></a>train</h3><p>这里的训练过程我就直接把超参列出，不多解释。</p>
+<p>数据集：WMT 2014英德翻译</p>
+<p>词表：37000个，英德双语公用同一个词表</p>
+<p>batch：25000个训练token + 25000个目标token</p>
+<p>优化器：adam，$\beta_1 &#x3D; 0.9$，$\beta_2 &#x3D; 0.98$，$\epsilon &#x3D; 10^{-9}$</p>
+<p>学习率：先在 warmup 内线性升温，之后按步数平方根倒数衰减（论文 §5.3）：<br>$$<br>\mathrm{lrate}&#x3D;d_{model}^{-0.5}\cdot\min\left(\mathrm{step}^{-0.5},\ \mathrm{step}\cdot\mathrm{warmup_steps}^{-1.5}\right)<br>$$<br>$d_{model}&#x3D;512$、$\mathrm{warmup_steps}&#x3D;4000$</p>
+<p>正则化：用了dropout和label smoothing</p>
+<h3 id="result"><a href="#result" class="headerlink" title="result"></a>result</h3><p>在英德翻译任务中高出已知最好模型2个BLEU，并且在其他NLP领域都取得了不俗的成绩。</p>
+<h2 id="小结-1"><a href="#小结-1" class="headerlink" title="小结"></a>小结</h2><p>这里我们对Attention Is All You Need的整篇文章有了大概的认知：文章提出了一个新的架构，仅用注意力机制和MLP就实现了和之前被优化过的RNN架构相近甚至更好的成果，接下来我们就化身为两个token，一个进入encoder，一个进入decoder，看一看“变形金刚”究竟怎么运作的。</p>
+<h2 id="二、一滴水流入丽江"><a href="#二、一滴水流入丽江" class="headerlink" title="二、一滴水流入丽江"></a>二、一滴水流入丽江</h2><p>之后就是深水区了，将涉及到公式推导和矩阵乘法，相信我们能坚持下来。</p>
+<h3 id="encoder"><a href="#encoder" class="headerlink" title="encoder"></a>encoder</h3><h4 id="word-embedding"><a href="#word-embedding" class="headerlink" title="word embedding"></a>word embedding</h4><p>假设你现在就是一个词，比如I love you，你会怎样把自己表示成向量呢？第一想法肯定是把词用一张表来表示，如果是这个词就标为1，不是就标为0。这样就能把一句话变成一个二维矩阵如：[[0, 0, 1], [1, 0, 0], [0, 1, 0]]称之为one-hot。可是这也有问题，我们知道I和you作为两个代词意思是更加接近的，如果只用one-hot表示就不能体现出词与词之间的语义差异，因此我们将one-hot表示的词输入到一个线性模型里，把词语映射到一个语义空间，让模型自己学习不同词语之间的差异。这就是embedding层做的事情。</p>
+<h4 id="positional-encoding"><a href="#positional-encoding" class="headerlink" title="positional encoding"></a>positional encoding</h4><p>具体来将公式是这样的：</p>
+<p>$$<br>PE_{(pos,2i)}&#x3D;\sin\left(\frac{pos}{10000^{2i&#x2F;d_{model}}}\right),\qquad PE_{(pos,2i+1)}&#x3D;\cos\left(\frac{pos}{10000^{2i&#x2F;d_{model}}}\right)<br>$$</p>
+<p>而在python里面的模拟是这样的。</p>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">import</span> numpy <span class="keyword">as</span> np</span><br><span class="line"><span class="keyword">def</span> <span class="title function_">sinusoidal_pe</span>(<span class="params">seq_len, d_model</span>):</span><br><span class="line">    pe = np.zeros((seq_len, d_model))</span><br><span class="line">    pos = np.arange(seq_len)[: , <span class="literal">None</span>]</span><br><span class="line">    i = np.arange(<span class="number">0</span>, d_model, <span class="number">2</span>)[<span class="literal">None</span>, :]</span><br><span class="line">    div = np.power(<span class="number">10000</span>, i / d_model)</span><br><span class="line">    pe[:, <span class="number">0</span>::<span class="number">2</span>] = np.sin(pos / div)</span><br><span class="line">    pe[:, <span class="number">1</span>::<span class="number">2</span>] = np.cos(pos / div)</span><br><span class="line">    <span class="keyword">return</span> pe</span><br></pre></td></tr></table></figure>
+
+<p>这个位置编码有几个有意思的性质：①它的范数（每个值的平方和再开根）是固定的由 $d_{model}$ 决定；②间隔同样为 $k$ 的两组 $PE$ 向量的点乘是固定的。</p>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br></pre></td><td class="code"><pre><span class="line">d_model = <span class="number">512</span></span><br><span class="line">seq_len = <span class="number">100</span></span><br><span class="line"></span><br><span class="line">pe = sinusoidal_pe(seq_len, d_model)</span><br><span class="line"><span class="built_in">print</span>(np.linalg.norm(pe, axis = <span class="number">1</span>)) <span class="comment"># 全部打印16.是因为每个token有256对sin cos平方相加就为256开根就是16</span></span><br><span class="line"></span><br><span class="line">rng = np.random.default_rng(<span class="number">0</span>)</span><br><span class="line">p = <span class="number">50</span></span><br><span class="line">k = <span class="number">10</span></span><br><span class="line"><span class="built_in">print</span>(<span class="string">f&quot;pe[p] @ pe[p + k] = <span class="subst">&#123;pe[p] @ pe[p + k]&#125;</span>&quot;</span>)</span><br><span class="line"><span class="built_in">print</span>(<span class="string">f&quot;pe[0] @ pe[k] = <span class="subst">&#123;pe[<span class="number">0</span>] @ pe[k]&#125;</span>&quot;</span>) <span class="comment"># 这两个的点乘是相同的，机器学习的是q @ PE和k @ PE的这两个的会变化的量</span></span><br></pre></td></tr></table></figure>
+
+<p>所以正弦位置编码通过固定的相对位移关系，为模型提供可学习的相对位置信息。</p>
+<h4 id="multi-head-attention-MHA"><a href="#multi-head-attention-MHA" class="headerlink" title="multi-head attention (MHA)"></a>multi-head attention (MHA)</h4><p>到了最激动人心的阶段了，我们先讲MHA的前身self-attention。</p>
+<p>我们把self-attention当作一个开锁的过程，我们现在手里有一把钥匙，称作 $q$（query），这把钥匙的材质是橡皮泥的，和锁越接近就能把锁开的越大，在我们面前有 $n$ 个箱子称作 $v$（value），每个箱子上有一把锁，称作 $k$（key），怎么样知道锁和箱子的契合度呢，我们就用钥匙去试每一把锁，打开多少就把里面的value拿出来，之后把所有的value汇总，就能知道在看过每一个箱子后，手里的钥匙跟箱子的关系了。</p>
+<p>真正的数学实现是这样的，上面已经说了transformer的最大优势就是高并行，高并行的一个表现就是多用矩阵乘法，我们把输入和一个可学习的矩阵 $W_q$ 乘在一起，成为一个 $Q$ 矩阵；同理每个 $k$、$v$ 都组合成 $K$、$V$ 矩阵，拿着 $q$ 找 $k$ 的过程就是 $QK^{T}$，之后我们得到的是一串大数值，再把它用softmax变成 $[0,1]$ 的向量用来表示相似度，最后把它和 $V$ 相乘求和得到取值。</p>
+<p>$$<br>\mathrm{Attention}(Q,K,V)&#x3D;\mathrm{softmax}\left(\frac{QK^{T}}{\sqrt{d_k}}\right)V<br>$$</p>
+<p>这里我们看到，softmax 前还除以一个 $\sqrt{d_k}$，这是因为单纯的矩阵乘法会导致特定的数值过大，在softmax后趋向于1，其他的值趋向于0，这就造成两个问题：①这样的注意力机制实际上对真实值的影响不大；②梯度下降的时候更难收敛。所以要除以一个 $\sqrt{d_k}$。这个 $\sqrt{d_k}$ 是怎么算出来的？我们假设每个 $q,k$ 为 $d_k$ 维向量，$q_i,k_i$ 各自独立且均值为0，方差为1，那么 $q\times k$ 之后考察每个元素 $q_i\times k_j$，它的均值就是</p>
+<p>$$<br>\mathbb{E}[q_i\times k_j]&#x3D;\mathbb{E}[q_i]\times\mathbb{E}[k_j]&#x3D;0<br>$$</p>
+<p>也就是说它的均值还是0。对于它的方差</p>
+<p>$$<br>\operatorname{Var}[q_i\times k_j]&#x3D;\mathbb{E}[q_i^2\times k_j^2]-(\mathbb{E}[q_i\times k_j])^2&#x3D;\mathbb{E}[q_i^2]\times\mathbb{E}[k_j^2]&#x3D;1<br>$$</p>
+<p>所以每一项的方差为1，之后我们还要对 $d_k$ 个 $q_i\times k_j$ 求和，所以 $q\times k$ 的方差就是每一个 $q_i\times k_j$ 的方差相加为 $d_k$，要消除这个放大的方差，就要除以 $d_k^{1&#x2F;2}$。</p>
+<p>这里我们总结一下，$q$ 就像提问者，决定看哪个 $k$；$k$ 就像索引，表示谁能被找到；$v$ 就像内容，代表 $q$ 真正能带走什么。</p>
+<p><img src="/images/transformer/scaled-dot-product-attention.png" alt="缩放点积注意力（原论文 Figure 2 左）"></p>
+<p>看到这里我们可能会觉得这个注意力机制已经臻至化境了，但实际上还有问题，如果我们只用一组 $q$、$k$、$v$ 作为注意力的话，模型往往只能关注到输入的一个方面，这直觉上看也很合理，我们把注意力头(head)的个数想象成人脑的个数，如果只有一个脑袋，那往往注意到的是片面的，但是如果多个人一起看，那结论往往更全面，所以我们要让不同矩阵分别求出 $q$、$k$、$v$ 去关注输入，这就是多头注意力机制，multi-head attention,MHA。</p>
+<p>简单来说实现方法是这样的，我们训练 $h$ 组 $W_q$、$W_k$、$W_v$ 层，让其分别与输入做self-attention，最后把输出连起来，再训练一个矩阵 $W_o$ 用来学习怎么综合各个注意力的结果，$W_q$ 输出的大小 $d_k&#x3D;d_{model}&#x2F;h$，$h$ 表示注意力的头数head，这就是多头注意力机制。</p>
+<p>$$<br>\mathrm{MultiHead}(Q,K,V)&#x3D;\mathrm{Concat}(\mathrm{head}_1,\dots,\mathrm{head}_h)W^{O},\qquad \mathrm{head}_i&#x3D;\mathrm{Attention}(QW_i^{Q}, KW_i^{K}, VW_i^{V})<br>$$</p>
+<p><img src="/images/transformer/multi-head-attention.png" alt="多头注意力（原论文 Figure 2 右）"></p>
+<p>最后我们来看输入 $A^{n\times d_{model}}$ 在注意力层的大小是怎么变化的，一开始，$A^{n\times d_{model}}$ 分别与 $W_q^{d_{model}\times d_k}$，$W_k^{d_{model}\times d_k}$，$W_v^{d_{model}\times d_v}$ 点乘（$AW_q$……），在原论文中 $d_k&#x3D;d_v&#x3D;d_{model}&#x2F;h$，得到的 $Q^{n\times d_k}$，$K^{n\times d_k}$，$V^{n\times d_v}$，之后我们让 $Q$ 与 $K^{T}$ 点乘（$QK^{T}$），得到 $A^{n\times n}$ 的矩阵，在除 $\sqrt{d_k}$ 后 softmax，得到 $A’^{n\times n}$ 的矩阵，最后与 $V$ 点乘（$A’V$），得到 $B^{n\times d_v}$，把每一个 $B$ 连接起来得到 $B’^{n\times d_{model}}$，最后用可学习矩阵 $W_o^{d_{model}\times d_{model}}$ 点乘（$B’W_o$），得到 MHA 的输出 $C^{n\times d_{model}}$。可以看到经历的一次 attention 后数据的形状没变。</p>
+<h4 id="Add-Norm"><a href="#Add-Norm" class="headerlink" title="Add &amp; Norm"></a>Add &amp; Norm</h4><p>问题又来了，如果只用注意力层会导致之前注意到的信息丢失，导致神经网络越深，一开始的信息就越难传递过去，那么怎么办呢？一个简单粗暴的方法就是把之前一层的数值直接加上去。没错，transformer也是这么干的。但问题又来了，把前面的数值加了一次，量级不就乘二了，这样下去越深的网络数值越大，缓存要撑不住了。所以我们还要对输出归一化，这里有两种选择，一种是层归一化（Layer Norm）；另一种是批量归一化（Batch Norm）。层归一化是在一个token里把每个特征 $x$ 取平均、标准差得到 $x_{mean}$， $x_{std}$ 之后按照 $x_s&#x3D;\frac{x-x_{mean}}{x_{std}}$ 的公式进行归一化。批量归一化是在不同token里取同一个特征 $x$ 把不同token的 $x$ 取平均、标准差，之后算出 $x_s$。我们仅凭直觉能发现，批量归一化在batch（或者说token）大的情况下效果更好，因为更不易受极端数据的干扰，而层归一化应该在小数据上效果好，因为它和batch的大小无关。Layer Norm不依赖batch，针对每一个token进行特化，适用于机器翻译的任务，所以这里我们归一化的方式是层归一化（Layer Norm）。</p>
+<p>之后在每个子层后都要加上Add &amp; Norm。</p>
+<h4 id="position-wise-feed-forward-network-FFN"><a href="#position-wise-feed-forward-network-FFN" class="headerlink" title="position-wise feed-forward network (FFN)"></a>position-wise feed-forward network (FFN)</h4><p>就像为什么要使用MLP一样，我们如果输入单个token，因为softmax一直取1，注意力层就会退化为线性层，也就是说这个时候，我们花了这么大功夫，不如训练一个多元线性回归。这么看，attention层的作用是告诉模型我应该看什么，但是我应该怎么想就不是注意力层该干的事了。所以我们这里就要用一层MLP去让模型学习怎么思考具体来讲是这样的：</p>
+<p>$$<br>\mathrm{FFN}(x)&#x3D;\max(0, xW_1+b_1) W_2+b_2<br>$$</p>
+<p>就是线性层-&gt;ReLU-&gt;线性层这里的两个线性层的大小分别是 $512\times2048$ 和 $2048\times512$，这种先放大再缩小能让模型学到更多特征，让它更会思考。</p>
+<p>特别的，这里的MLP是对单个token计算的因此叫做position-wise，针对特定位置的，前馈神经网络。</p>
+<h4 id="小结-2"><a href="#小结-2" class="headerlink" title="小结"></a>小结</h4><p>FFN 子层完成 Add &amp; Norm 后，一个 encoder block 就结束了；把这个流程循环 $N$ 次，得到的结果就可以与 decoder 连接了。</p>
+<h3 id="decoder"><a href="#decoder" class="headerlink" title="decoder"></a>decoder</h3><h4 id="word-embedding-1"><a href="#word-embedding-1" class="headerlink" title="word embedding"></a>word embedding</h4><p>在decoder我们遇到了一个问题，究竟怎样让模型知道什么时候开始，什么时候结束呢。其实做法很简单，我们在词表里面单独令一个词叫 <code>&lt;eos&gt;</code>，他就代表模型在这个时候停止，再开一个<code>&lt;bos&gt;</code>代表开始。</p>
+<p>值得注意的是，decoder在训练和推理时的输入是不一样的，在训练时的输入是上一轮真实值，在推理时的输入是上一轮推理出的token。其他的和encoder层一样，这里就不多赘述。</p>
+<h4 id="Masked-MHA"><a href="#Masked-MHA" class="headerlink" title="Masked MHA"></a>Masked MHA</h4><p>decoder层和encoder层的注意力不一样，就像人类一样，我们说话不是一下子把一整句话说出来，而是一个词一个词蹦，在我们说话时我们并不能完全肯定下一个词是什么，也就是说我们并不能注意到之后的词。模型也是一样的，它在推理的时候并不知道之后的词是什么，如果我们在训练的时候直接把一整句话给它，由于训练与推理场景的不匹配，它的效果肯定不好，那么我们怎么样才能让场景匹配呢？</p>
+<p>最主要的问题就是注意力层 $A$ 的输出作为权重，会与 $t$ 时刻后的 $V$ 结合，那么我们就只要把 $t$ 时刻后的权重全部化为0就行了。在工程上讲就是在softmax前把 $t$ 时刻后的 $a$ 全部设为一个极小值比如 $-520$，这样在softmax之后出来的权重就会无限接近于0，这就让推理和训练时的场景匹配了。</p>
+<p>这就是Masked MHA的全部秘密。</p>
+<h4 id="Add-Norm-1"><a href="#Add-Norm-1" class="headerlink" title="Add &amp; Norm"></a>Add &amp; Norm</h4><p>decoder的这一层和encoder一样，就是每个子层后都要有Add &amp; Norm，就不多赘述。</p>
+<h4 id="cross-attention"><a href="#cross-attention" class="headerlink" title="cross attention"></a>cross attention</h4><p>我们之前在encoder层得到了输入应该注意的东西，之后就要把encoder和decoder的信息混合起来。</p>
+<p>简单来讲就是让encoder的输出作为 $K$ 和 $V$，让decoder的输入作为 $Q$，之后把他们输入到attention层得到一组新的矩阵 $A$，这样就把输入应该注意到的信息和输出应该注意到的信息结合起来了。</p>
+<p>所以transformer的三个注意力层其实没有本质区别，只要明白了最基本的MHA后就能一通百通了。</p>
+<h4 id="position-wise-feed-forward-network"><a href="#position-wise-feed-forward-network" class="headerlink" title="position-wise feed-forward network"></a>position-wise feed-forward network</h4><p>这一段和前面没有区别，就不多赘述。</p>
+<h4 id="小结-3"><a href="#小结-3" class="headerlink" title="小结"></a>小结</h4><p>我们把decoder的流程同样重复 $N$ 次，就能开始最后的分类过程了，在encoder里，我们让模型注意到了输入的相关信息，在decoder里我们让模型注意输出的信息并让它决定应该什么时候停止，最后我们要做的就是以终为始，以始为终，再把推理出的向量映射回之前的词表里。</p>
+<h3 id="classification"><a href="#classification" class="headerlink" title="classification"></a>classification</h3><p>transformer解码的过程就是在词表上对输出进行分类，对于一个给定的句子，我要在每个格子里找到词表里输出概率最高的词，这就是transformer的本质。而它的优点正是像attention，Mask这种符合人类思考和直觉的建模和计算方法。所以在最后，我们就把decoder的输出给到一个线性层，让输出softmax，得到每个词对应的出现概率，把出现概率最高的词选出作为输出。</p>
+<p>值得注意的是，这里的线性层权重、encoder、decoder里embedding层的权重都是一样的。</p>
+<p>这就是transformer的全部流程。</p>
+<h2 id="三、昨天、今天、明天"><a href="#三、昨天、今天、明天" class="headerlink" title="三、昨天、今天、明天"></a>三、昨天、今天、明天</h2><h3 id="统一思想"><a href="#统一思想" class="headerlink" title="统一思想"></a>统一思想</h3><p>本章主要讲述的是transformer的三大变体，分别是以BERT为主的Encoder-Only、以GPT为主的Decoder-Only和T5（Text-to-Text Transfer Transformer）中的原始Encoder-Decoder架构。在这里我们先从宏观分析一下transformer里的encoder和decoder具体都在干什么，在encoder里，模型没有Mask机制，直接浏览整个输入，如果和我们人比较的话，这种行为就像阅读，模型先看一整句话，然后思考这一整句话的意义，再思考这一句话在文中的意义。也就是说，encoder是用来做理解型任务的。接下来我们再看decoder，由于有Mask机制，导致模型每次只能注意到 $t$ 时刻之前的信息，这就像我们说话或者写文章，在写出完整的一句话之前，我们并不能清楚地知道这句话究竟是什么样，所以decoder是用来做生成型任务的。</p>
+<p>之后我们就一起来看看BERT和GPT-2。</p>
+<h3 id="BERT——Encoder-Only"><a href="#BERT——Encoder-Only" class="headerlink" title="BERT——Encoder-Only"></a>BERT——Encoder-Only</h3><p>BERT所要解决的问题是当时绝大多数的NLP研究者在解决任务时都是重新训练一个模型，就比如transformer的原论文就是在做机器翻译任务上训练的。那么有没有一种模型能提高泛化能力，在遇到新的任务时仅仅做一下微调或者再训练一个小模型就能取得SOTA（state-of-the-art）的成果呢？</p>
+<p>BERT就横空出世了。</p>
+<p>它的想法是之前的模型在文本理解的训练上用的都是从左到右的Mask机制，这不符合正常人理解文本的直觉，一般来说，如果不把一个句子看完，我们是不能把握清楚句子含义的。因此，BERT采用了双向transformer encoder+MLM+NSP用来增强模型的理解能力。</p>
+<p>具体做法是这样的，BERT的模型预训练分为两个目标：一是让它做完形填空，把一个句子扣掉几个词语，让BERT预测扣出的空应该填什么词语；另一个是上下文匹配，就是给出一个句子A，让它判断句子B是不是A的后一句。通过这两种方法训练出来的BERT，在之后针对特定任务进行特征提取（feature-based，让BERT仅作为提取特征的模型，在BERT之后另训练一个小模型作为输出）和微调（fine-tuning，根据特定任务调整BERT参数）这两个后训练方式出来的模型都取得了SOTA的成绩。</p>
+<p>那么BERT的真正成果在哪里？我想是它引领了先训练基模，在后训练微调的潮流，使得人们有更简单的方法能解决更多复杂的问题。</p>
+<h3 id="GPT-2——Decoder-Only"><a href="#GPT-2——Decoder-Only" class="headerlink" title="GPT-2——Decoder-Only"></a>GPT-2——Decoder-Only</h3><p>GPT-2所要解决的问题是模型的泛化能力，当时的绝大多数模型都是在有标签的数据集上训练比如data1&#x3D;(I Love You, 我爱你)，这种数据集的问题就是数据量很小，因此模型会对轻微扰动敏感并且泛化能力不强。GPT-2沿用了GPT-1的路径，直接用大规模的未标注数据集训练模型，让模型学到如何真正明白词义，来增强模型的泛化能力。</p>
+<p>但是问题来了，没有标注我们应该怎样训练模型呢，GPT-2用的方法是前人提出的因果注意力机制，把一个句子输入，让模型从左往右看，预测下一个词会是什么，这不同于BERT倾向于理解的双向注意力，GPT-2用的是倾向于生成的因果注意力。这就类似于我们写文章会看前文，再决定我们之后写的句子。如果BERT做的是完形填空，那么GPT-2做的就是读后续写。</p>
+<p>GPT-2证明了它的泛化能力，在 8 个语言建模数据集中的 7 个取得 zero-shot SOTA。</p>
+<p>并且GPT-2观察到了参数规模与效果的关系。</p>
+<h3 id="T5——Encoder-Decoder架构最后的挽歌"><a href="#T5——Encoder-Decoder架构最后的挽歌" class="headerlink" title="T5——Encoder-Decoder架构最后的挽歌"></a>T5——Encoder-Decoder架构最后的挽歌</h3><p>作为实验验证型文章，T5 提出了一个清晰统一的模型训练与评测流程，作者把所有的 NLP 领域任务都当成 text-to-text（文本到文本的任务），如果是句子翻译就可以说，翻译：I Love You；如果是文章总结就可以说，总结：我爱你……所有任务都使用相同的文本格式、损失函数和训练目标，具体评测指标则按任务选择。这就让 NLP 领域的学习更加规模化，而不是公说公有理，婆说婆有理。</p>
+<p>另外，T5通过自建数据集C4训练不同架构的模型，验证了NLP领域的几个主流观点：</p>
+<p>一、预训练数据的质量越高（去重、降噪、去掉无意义信息）模型训练越好。</p>
+<p>二、预训练数据量越高越好。</p>
+<p>三、模型参数越大越好。</p>
+<p>四、encoder-decoder在共享权重（这样参数量才一致）的前提下能取得比decoder-only更好的效果。</p>
+<p>五、小规模重复数据会损害模型能力。</p>
+<p>六、多任务学习在大多数任务下不如预训练+微调。</p>
+<p>总之，T5用了统一的方法测试了模型能力，并对主流观点给出了可信的评价和验证。认为在受控实验设置下，encoder-decoder架构比decoder-only架构效果更好。但这之后，LLM就基本是GPT的天下了。T5就像王朝将倾时的渔阳鼙鼓。</p>
+<h3 id="小结-4"><a href="#小结-4" class="headerlink" title="小结"></a>小结</h3><p>T5 在受控实验里证明encoder-decoder最强，但后来通用LLM的评价函数变成scale+in-context learning+统一生成接口+serving成本，decoder-only才赢。</p>
+<h2 id="引用"><a href="#引用" class="headerlink" title="引用"></a>引用</h2><p>BERT论文：<a target="_blank" rel="noopener" href="https://arxiv.org/abs/1810.04805">https://arxiv.org/abs/1810.04805</a><br>GPT-2论文：<a target="_blank" rel="noopener" href="https://cdn.openai.com/better-language-models/language_models_are_unsupervised_multitask_learners.pdf">https://cdn.openai.com/better-language-models/language_models_are_unsupervised_multitask_learners.pdf</a><br>Transformer论文：<a target="_blank" rel="noopener" href="https://arxiv.org/abs/1706.03762">https://arxiv.org/abs/1706.03762</a><br>T5论文：<a target="_blank" rel="noopener" href="http://arxiv.org/abs/1910.10683">http://arxiv.org/abs/1910.10683</a></p>
+
+    </div>
+
+    
+    
+    
+
+    <footer class="post-footer">
+          <div class="post-tags">
+              <a href="/tags/Transformer/" rel="tag"># Transformer</a>
+              <a href="/tags/NLP/" rel="tag"># NLP</a>
+              <a href="/tags/%E8%AE%BA%E6%96%87%E7%B2%BE%E8%AF%BB/" rel="tag"># 论文精读</a>
+          </div>
+
+        
+
+          <div class="post-nav">
+            <div class="post-nav-item">
+                <a href="/2026/10/06/mlp-from-scratch/" rel="prev" title="病隙碎笔：MLP复现手记">
+                  <i class="fa fa-angle-left"></i> 病隙碎笔：MLP复现手记
+                </a>
+            </div>
+            <div class="post-nav-item">
+            </div>
+          </div>
+    </footer>
+  </article>
+</div>
+
+
+
+
+
+
+</div>
+  </main>
+
+  <footer class="footer">
+    <div class="footer-inner">
+
+  <div class="copyright">
+    &copy; 
+    <span itemprop="copyrightYear">2026</span>
+    <span class="with-love">
+      <i class="fa fa-heart"></i>
+    </span>
+    <span class="author" itemprop="copyrightHolder">zhy-fnn</span>
+  </div>
+  <div class="powered-by">由 <a href="https://hexo.io/" rel="noopener" target="_blank">Hexo</a> & <a href="https://theme-next.js.org/" rel="noopener" target="_blank">NexT.Gemini</a> 强力驱动
+  </div>
+
+    </div>
+  </footer>
+
+  
+  <div class="toggle sidebar-toggle" role="button">
+    <span class="toggle-line"></span>
+    <span class="toggle-line"></span>
+    <span class="toggle-line"></span>
+  </div>
+  <div class="sidebar-dimmer"></div>
+  <div class="back-to-top" role="button" aria-label="返回顶部">
+    <i class="fa fa-arrow-up fa-lg"></i>
+    <span>0%</span>
+  </div>
+
+<noscript>
+  <div class="noscript-warning">Theme NexT works best with JavaScript enabled</div>
+</noscript>
+
+</body>
+</html>
