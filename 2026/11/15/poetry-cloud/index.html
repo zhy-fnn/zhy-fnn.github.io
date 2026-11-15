@@ -1,0 +1,414 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width">
+<meta name="theme-color" content="#222" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#222" media="(prefers-color-scheme: dark)"><meta name="generator" content="Hexo 7.0.0">
+
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32-next.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16-next.png">
+  <link rel="mask-icon" href="/images/logo.svg" color="#222">
+
+<link rel="stylesheet" href="/css/main.css">
+
+
+
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/7.0.0/css/all.min.css" integrity="sha256-VHqXKFhhMxcpubYf9xiWdCiojEbY9NexQ4jh8AxbvcM=" crossorigin="anonymous">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/animate.css/3.1.1/animate.min.css" integrity="sha256-PR7ttpcvz8qrF57fur/yAx1qXMFJeJFiA6pSzWi0OIE=" crossorigin="anonymous">
+
+<script class="next-config" data-name="main" type="application/json">{"hostname":"zhy-fnn.github.io","root":"/","images":"/images","scheme":"Gemini","darkmode":true,"version":"8.29.0","exturl":false,"sidebar":{"position":"left","width_expanded":320,"width_dual_column":240,"display":"always","padding":18,"offset":12},"hljswrap":true,"codeblock":{"theme":{"light":"default","dark":"stackoverflow-dark"},"prism":{"light":"prism","dark":"prism-dark"},"copy_button":{"enable":false,"style":null},"fold":{"enable":false,"height":500},"language":false},"bookmark":{"enable":false,"color":"#222","save":"auto"},"mediumzoom":false,"pangu":false,"comments":{"style":"tabs","active":null,"storage":true,"lazyload":false,"nav":null},"stickytabs":false,"motion":{"enable":true,"async":false,"duration":200,"transition":{"menu_item":"fadeInDown","post_block":"fadeIn","post_header":"fadeInDown","post_body":"fadeInDown","coll_header":"fadeInLeft","sidebar":"fadeInUp"}},"i18n":{"placeholder":"搜索...","empty":"没有找到任何搜索结果：${query}","hits_time":"找到 ${hits} 个搜索结果（用时 ${time} 毫秒）","hits":"找到 ${hits} 个搜索结果"}}</script><script src="/js/config.js" defer></script>
+
+    <meta name="description" content="记录从零复现 nanoGPT、清洗古诗数据、完成预训练与 SFT，并用 best-of-N 改善生成效果的两周项目实践。">
+<meta property="og:type" content="article">
+<meta property="og:title" content="诗云：从 nanoGPT 到会写诗的小模型">
+<meta property="og:url" content="https://zhy-fnn.github.io/2026/11/15/poetry-cloud/index.html">
+<meta property="og:site_name" content="zhy-fnn">
+<meta property="og:description" content="记录从零复现 nanoGPT、清洗古诗数据、完成预训练与 SFT，并用 best-of-N 改善生成效果的两周项目实践。">
+<meta property="og:locale" content="zh_CN">
+<meta property="og:image" content="https://zhy-fnn.github.io/images/poetry-cloud/transformer-architecture.png">
+<meta property="og:image" content="https://zhy-fnn.github.io/images/poetry-cloud/tech_stack.png">
+<meta property="og:image" content="https://zhy-fnn.github.io/images/poetry-cloud/loss_curve_pretrain_train_val.png">
+<meta property="og:image" content="https://zhy-fnn.github.io/images/poetry-cloud/loss_curve_sft_train_val.png">
+<meta property="article:published_time" content="2026-11-15T01:16:03.000Z">
+<meta property="article:modified_time" content="2026-11-15T01:16:11.840Z">
+<meta property="article:author" content="zhy-fnn">
+<meta property="article:tag" content="机器学习">
+<meta property="article:tag" content="nanoGPT">
+<meta property="article:tag" content="PyTorch">
+<meta property="article:tag" content="古诗生成">
+<meta property="article:tag" content="项目复盘">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:image" content="https://zhy-fnn.github.io/images/poetry-cloud/transformer-architecture.png">
+
+
+<link rel="canonical" href="https://zhy-fnn.github.io/2026/11/15/poetry-cloud/">
+
+
+<script class="next-config" data-name="page" type="application/json">{"sidebar":"","isHome":false,"isPost":true,"lang":"zh-CN","comments":true,"permalink":"https://zhy-fnn.github.io/2026/11/15/poetry-cloud/","path":"2026/11/15/poetry-cloud/","title":"诗云：从 nanoGPT 到会写诗的小模型"}</script>
+
+<script class="next-config" data-name="calendar" type="application/json">""</script>
+<title>诗云：从 nanoGPT 到会写诗的小模型 | zhy-fnn</title>
+  
+
+
+
+
+
+
+
+
+  
+<script src="/js/utils.js" defer></script><script src="/js/motion.js" defer></script><script src="/js/sidebar.js" defer></script><script src="/js/next-boot.js" defer></script>
+
+  
+
+
+
+
+
+
+  
+
+
+
+
+  
+
+  <script class="next-config" data-name="enableMath" type="application/json">true</script><script class="next-config" data-name="mathjax" type="application/json">{"enable":true,"tags":"none","display_overflow":"scroll","js":{"url":"https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-mml-chtml.js","integrity":"sha256-ihPtDDm7pTmSF9ViEsItlvsrBTsNkz0MOXMchzOwCQw="}}</script>
+<script src="/js/third-party/math/mathjax.js" defer></script>
+
+
+
+  <noscript>
+    <link rel="stylesheet" href="/css/noscript.css">
+  </noscript>
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage" class="use-motion">
+  <div class="headband"></div>
+
+  <main class="main">
+    <div class="column">
+      <header class="header" itemscope itemtype="http://schema.org/WPHeader"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="切换导航栏" role="button">
+        <span class="toggle-line"></span>
+        <span class="toggle-line"></span>
+        <span class="toggle-line"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <a href="/" class="brand" rel="start">
+      <i class="logo-line"></i>
+      <p class="site-title">zhy-fnn</p>
+      <i class="logo-line"></i>
+    </a>
+      <p class="site-subtitle" itemprop="description">Future-Oriented Programming-FOP</p>
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger" aria-label="搜索" role="button">
+    </div>
+  </div>
+</div>
+
+
+
+<nav class="site-nav">
+  <ul class="main-menu menu"><li class="menu-item menu-item-home"><a href="/" rel="section"><i class="fa fa-home fa-fw"></i>首页</a></li><li class="menu-item menu-item-文章导览"><a href="/guide/" rel="section"><i class="fa fa-compass fa-fw"></i>文章导览</a></li><li class="menu-item menu-item-categories"><a href="/categories/" rel="section"><i class="fa fa-th fa-fw"></i>分类</a></li><li class="menu-item menu-item-tags"><a href="/tags/" rel="section"><i class="fa fa-tags fa-fw"></i>标签</a></li><li class="menu-item menu-item-archives"><a href="/archives/" rel="section"><i class="fa fa-archive fa-fw"></i>归档</a></li><li class="menu-item menu-item-about"><a href="/about/" rel="section"><i class="fa fa-user fa-fw"></i>关于</a></li>
+  </ul>
+</nav>
+
+
+
+
+</header>
+        
+  
+  <aside class="sidebar">
+
+    <div class="sidebar-inner sidebar-nav-active sidebar-toc-active">
+      <ul class="sidebar-nav">
+        <li class="sidebar-nav-toc">
+          文章目录
+        </li>
+        <li class="sidebar-nav-overview">
+          站点概览
+        </li>
+      </ul>
+
+      <div class="sidebar-panel-container">
+        <!--noindex-->
+        <div class="post-toc-wrap sidebar-panel">
+            <div class="post-toc animated"><ol class="nav"><li class="nav-item nav-level-2"><a class="nav-link" href="#%E7%BC%98%E8%B5%B7"><span class="nav-number">1.</span> <span class="nav-text">缘起</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E5%89%8D%E7%BD%AE"><span class="nav-number">2.</span> <span class="nav-text">前置</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E5%88%9D%E8%A7%81"><span class="nav-number">3.</span> <span class="nav-text">初见</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E9%98%B6%E8%B7%83"><span class="nav-number">4.</span> <span class="nav-text">阶跃</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E5%8F%98%E5%BC%8F"><span class="nav-number">5.</span> <span class="nav-text">变式</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#%E6%95%B0%E6%8D%AE"><span class="nav-number">5.1.</span> <span class="nav-text">数据</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#%E8%B0%83%E6%95%B4"><span class="nav-number">5.2.</span> <span class="nav-text">调整</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#%E9%87%8A%E6%80%80"><span class="nav-number">5.3.</span> <span class="nav-text">释怀</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E5%B7%A5%E7%A8%8B"><span class="nav-number">6.</span> <span class="nav-text">工程</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E6%94%B9%E8%BF%9B"><span class="nav-number">7.</span> <span class="nav-text">改进</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E5%88%A4%E6%96%AD"><span class="nav-number">8.</span> <span class="nav-text">判断</span></a></li></ol></div>
+        </div>
+        <!--/noindex-->
+
+        <div class="site-overview-wrap sidebar-panel">
+          <div class="site-author animated" itemprop="author" itemscope itemtype="http://schema.org/Person">
+    <img class="site-author-image" itemprop="image" alt="zhy-fnn"
+      src="https://avatars.githubusercontent.com/u/182390613?v=4">
+  <p class="site-author-name" itemprop="name">zhy-fnn</p>
+  <div class="site-description" itemprop="description"></div>
+</div>
+<div class="site-state-wrap animated">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+        <a href="/archives/">
+          <span class="site-state-item-count">5</span>
+          <span class="site-state-item-name">日志</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-categories">
+          <a href="/categories/">
+        <span class="site-state-item-count">3</span>
+        <span class="site-state-item-name">分类</span></a>
+      </div>
+      <div class="site-state-item site-state-tags">
+          <a href="/tags/">
+        <span class="site-state-item-count">12</span>
+        <span class="site-state-item-name">标签</span></a>
+      </div>
+  </nav>
+</div>
+  <div class="links-of-author animated">
+      <span class="links-of-author-item">
+        <a href="https://github.com/zhy-fnn" title="GitHub → https:&#x2F;&#x2F;github.com&#x2F;zhy-fnn" rel="noopener me" target="_blank"><i class="fab fa-github fa-fw"></i>GitHub</a>
+      </span>
+  </div>
+
+        </div>
+      </div>
+    </div>
+
+    
+  </aside>
+
+
+    </div>
+
+    <div class="main-inner post posts-expand">
+
+
+  
+
+
+<div class="post-block">
+  
+  
+
+  <article itemscope itemtype="http://schema.org/Article" class="post-content" lang="zh-CN">
+    <link itemprop="mainEntityOfPage" href="https://zhy-fnn.github.io/2026/11/15/poetry-cloud/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="https://avatars.githubusercontent.com/u/182390613?v=4">
+      <meta itemprop="name" content="zhy-fnn">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="zhy-fnn">
+      <meta itemprop="description" content="">
+    </span>
+
+    <span hidden itemprop="post" itemscope itemtype="http://schema.org/CreativeWork">
+      <meta itemprop="name" content="诗云：从 nanoGPT 到会写诗的小模型 | zhy-fnn">
+      <meta itemprop="description" content="记录从零复现 nanoGPT、清洗古诗数据、完成预训练与 SFT，并用 best-of-N 改善生成效果的两周项目实践。">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          诗云：从 nanoGPT 到会写诗的小模型
+        </h1>
+
+        <div class="post-meta-container">
+          <div class="post-meta">
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-calendar"></i>
+      </span>
+      <span class="post-meta-item-text">发表于</span>
+      
+
+      <time title="创建时间：2026-11-15 09:16:03 / 修改时间：09:16:11" itemprop="dateCreated datePublished" datetime="2026-11-15T09:16:03+08:00">2026-11-15</time>
+    </span>
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-folder"></i>
+      </span>
+      <span class="post-meta-item-text">分类于</span>
+        <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+          <a href="/categories/%E4%BB%8E%E9%9B%B6%E5%AE%9E%E7%8E%B0/" itemprop="url" rel="index"><span itemprop="name">从零实现</span></a>
+        </span>
+    </span>
+
+  
+</div>
+
+            <div class="post-description">记录从零复现 nanoGPT、清洗古诗数据、完成预训练与 SFT，并用 best-of-N 改善生成效果的两周项目实践。</div>
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody"><blockquote>
+<p>——完成比完美更重要（nanoGPT复现）<br>本篇文章将以一个大一学生的视角讲解怎么接触项目，怎么复现项目，有什么能创新的地方以及我接触项目的工作流是什么。</p>
+</blockquote>
+<h2 id="缘起"><a href="#缘起" class="headerlink" title="缘起"></a>缘起</h2><p>在学完 Transformer 架构了以后，一个顺其自然的想法就是自己搭一个 LM，而原始的 encoder-decoder LM 在工业界已经不常用了，因此我准备复现的是 decoder-only 的 LM，用的是最基础的架构：</p>
+<p><img src="/images/poetry-cloud/transformer-architecture.png" alt="Transformer 架构图"></p>
+<p>原本我觉得我连论文都全部搞懂了，架构图都滚瓜烂熟了，那用 PyTorch 搭建模型应该手到擒来吧。结果现实让我知道，弄懂理论和真正能工程实践这两者有巨大的鸿沟。</p>
+<h2 id="前置"><a href="#前置" class="headerlink" title="前置"></a>前置</h2><p>在做诗云项目之前，我 PyTorch 只学了最基础的部分，在堆叠模型层数的时候只会用 nn.Linear, nn.Linear, nn.Linear……这样子一个一个堆叠。因此，为了完成这个项目，第一步就是把这个项目所涉及的技术栈基本知识先补全。</p>
+<p>我的做法是把整个包交给ds，向她描述我现在的技术栈掌握情况，询问她我还要补哪些技术栈，缺口较大的就上B站补，缺口较小的就让她给我写一个教学文档，要求是有原理，代码，示例，作业，还能够和我要做的项目有直接联系。</p>
+<p>就我的体感上讲，大模型在教学领域的能力还有很大的上升空间，网上总是说AI时代来临是对自学的爱好者最大的利好，但我的感受是：大模型确实能帮你解决现在提出的问题，但她发散的能力不行，这也就导致了她不能帮你触类旁通，构建不好完整的知识体系。所以我在遇到庞大的未知技术栈的时候还是会用“古法学习”，也就是看论文，看视频。这个问题不知道是我个人的提示词没有写好，还是确实大模型就是在自然语言和教学方面有所欠缺，因为多数厂商在卷的都是coding和math，RL的方向也是这些。</p>
+<p>我让ds给我补全了技术栈，虽说不算能完全手写，但达到了能看懂的程度，这就可以入手一个项目了。</p>
+<p><img src="/images/poetry-cloud/tech_stack.png" alt="诗云项目技术栈"></p>
+<h2 id="初见"><a href="#初见" class="headerlink" title="初见"></a>初见</h2><p>我们先统一思想：刚开始着手一个项目时一定会不知所措，那我们看懂一个项目最好的办法就是自己做注释，虽然这是个死方法，但确实行之有效。更何况nanoGPT本来就是作者用来教学的项目，这就更降低了代码的注释难度。</p>
+<p>问题又来了，我们应该注释些什么呢？我们要提纲挈领，掌握项目的共性与特性。在此我就以nanoGPT项目为例。</p>
+<p>共性就是在我们没读懂的地方，写注释，至于怎么读懂，可以多读几遍或者问AI。</p>
+<p>特性就是既然我们做的是一个LM项目，那么数据流的大小就是不可忽视的一个元素，我们可以在每次数据流大小变化的时候做注释，就像这样。</p>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line">q, k, v  = <span class="variable language_">self</span>.c_attn(x).split(<span class="variable language_">self</span>.n_embd, dim=<span class="number">2</span>) <span class="comment"># 先把x做attention，再把得到的结果按d_model的步长在第二维分开  </span></span><br><span class="line">k = k.view(B, T, <span class="variable language_">self</span>.n_head, C // <span class="variable language_">self</span>.n_head).transpose(<span class="number">1</span>, <span class="number">2</span>) <span class="comment"># (B, nh, T, hs) 剪切  </span></span><br><span class="line">q = q.view(B, T, <span class="variable language_">self</span>.n_head, C // <span class="variable language_">self</span>.n_head).transpose(<span class="number">1</span>, <span class="number">2</span>) <span class="comment"># (B, nh, T, hs)  </span></span><br><span class="line">v = v.view(B, T, <span class="variable language_">self</span>.n_head, C // <span class="variable language_">self</span>.n_head).transpose(<span class="number">1</span>, <span class="number">2</span>) <span class="comment"># (B, nh, T, hs)</span></span><br></pre></td></tr></table></figure>
+<p>这是因果注意力机制的一段注释</p>
+<p>做注释的目的是让我们能流畅地读懂代码，不要今天是“这个代码只有我和上帝看得懂”，明天就是“这个代码只有上帝看得懂了”。所以，我们也不能陷入本本主义，每行代码都注释，这很浪费时间，投入产出比也不高。</p>
+<h2 id="阶跃"><a href="#阶跃" class="headerlink" title="阶跃"></a>阶跃</h2><p>在注释完主要代码后，我们应该对这个项目有了初步的了解，接下来我们应该能做出本项目的项目地图，即做出入口、配置、核心、数据、测试、输出……等模块，即各模块之间是怎样相互作用的。这里最重要的就是培养出工程品味，我虽然只写了一个项目，但我还是大言不惭的在这说一下我认为的工程品味是什么：能快速在脑内建立项目地图，清晰区分出核心模块。有了工程地图，我们才能在之后有的放矢。</p>
+<p>因为我复现 nanoGPT 的目的是学习 Transformer 以及提升自己的工程能力，所以我在这一阶段应该做的就是直扑核心模块的核心算法。相信了解 Transformer 的人都知道它的核心模块是什么——“Attention is all you need”。所以，我一开始研究的就是因果注意力模块，这时不要求能够闭眼复现，目标是能在有 AI 提示的情况下能把它完整写出就行了。</p>
+<p>以下贴出的是nanoGPT的因果注意力</p>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">class</span> <span class="title class_">CausalSelfAttention</span>(nn.Module):  </span><br><span class="line">  </span><br><span class="line">    <span class="keyword">def</span> <span class="title function_">__init__</span>(<span class="params">self, config</span>):  </span><br><span class="line">        <span class="built_in">super</span>().__init__()  </span><br><span class="line">        <span class="keyword">assert</span> config.n_embd % config.n_head == <span class="number">0</span> <span class="comment"># 这里的n_embd就是论文里的d_model，就是如果无法分头就退出  </span></span><br><span class="line">        <span class="comment"># key, query, value projections for all heads, but in a batch  </span></span><br><span class="line">        <span class="variable language_">self</span>.c_attn = nn.Linear(config.n_embd, <span class="number">3</span> * config.n_embd, bias=config.bias)  </span><br><span class="line">        <span class="comment"># output projection  </span></span><br><span class="line">        <span class="variable language_">self</span>.c_proj = nn.Linear(config.n_embd, config.n_embd, bias=config.bias)  </span><br><span class="line">        <span class="comment"># regularization  </span></span><br><span class="line">        <span class="variable language_">self</span>.attn_dropout = nn.Dropout(config.dropout)  </span><br><span class="line">        <span class="variable language_">self</span>.resid_dropout = nn.Dropout(config.dropout)  </span><br><span class="line">        <span class="variable language_">self</span>.n_head = config.n_head  </span><br><span class="line">        <span class="variable language_">self</span>.n_embd = config.n_embd  </span><br><span class="line">        <span class="variable language_">self</span>.dropout = config.dropout  </span><br><span class="line">        <span class="comment"># flash attention make GPU go brrrrr but support is only in PyTorch &gt;= 2.0  </span></span><br><span class="line">        <span class="variable language_">self</span>.flash = <span class="built_in">hasattr</span>(torch.nn.functional, <span class="string">&#x27;scaled_dot_product_attention&#x27;</span>)  </span><br><span class="line">        <span class="keyword">if</span> <span class="keyword">not</span> <span class="variable language_">self</span>.flash:  </span><br><span class="line">            <span class="built_in">print</span>(<span class="string">&quot;WARNING: using slow attention. Flash Attention requires PyTorch &gt;= 2.0&quot;</span>)  </span><br><span class="line">            <span class="comment"># causal mask to ensure that attention is only applied to the left in the input sequence  </span></span><br><span class="line">            <span class="variable language_">self</span>.register_buffer(<span class="string">&quot;bias&quot;</span>, torch.tril(torch.ones(config.block_size, config.block_size))  </span><br><span class="line">                                        .view(<span class="number">1</span>, <span class="number">1</span>, config.block_size, config.block_size)) <span class="comment"># 这里是注意力掩码  </span></span><br><span class="line">  </span><br><span class="line">    <span class="keyword">def</span> <span class="title function_">forward</span>(<span class="params">self, x</span>):  </span><br><span class="line">        B, T, C = x.size() <span class="comment"># batch size, sequence length, embedding dimensionality (n_embd)  </span></span><br><span class="line">  </span><br><span class="line">        <span class="comment"># calculate query, key, values for all heads in batch and move head forward to be the batch dim</span></span><br><span class="line">        q, k, v  = <span class="variable language_">self</span>.c_attn(x).split(<span class="variable language_">self</span>.n_embd, dim=<span class="number">2</span>) <span class="comment"># 先把x做attention，再把得到的结果按d_model的步长在第二维分开</span></span><br><span class="line">        k = k.view(B, T, <span class="variable language_">self</span>.n_head, C // <span class="variable language_">self</span>.n_head).transpose(<span class="number">1</span>, <span class="number">2</span>) <span class="comment"># (B, nh, T, hs) 剪切  </span></span><br><span class="line">        q = q.view(B, T, <span class="variable language_">self</span>.n_head, C // <span class="variable language_">self</span>.n_head).transpose(<span class="number">1</span>, <span class="number">2</span>) <span class="comment"># (B, nh, T, hs)  </span></span><br><span class="line">        v = v.view(B, T, <span class="variable language_">self</span>.n_head, C // <span class="variable language_">self</span>.n_head).transpose(<span class="number">1</span>, <span class="number">2</span>) <span class="comment"># (B, nh, T, hs)  </span></span><br><span class="line">  </span><br><span class="line">        <span class="comment"># causal self-attention; Self-attend: (B, nh, T, hs) x (B, nh, hs, T) -&gt; (B, nh, T, T)</span></span><br><span class="line">        <span class="keyword">if</span> <span class="variable language_">self</span>.flash:</span><br><span class="line">            <span class="comment"># efficient attention using Flash Attention CUDA kernels  </span></span><br><span class="line">            y = torch.nn.functional.scaled_dot_product_attention(q, k, v, attn_mask=<span class="literal">None</span>, dropout_p=<span class="variable language_">self</span>.dropout <span class="keyword">if</span> <span class="variable language_">self</span>.training <span class="keyword">else</span> <span class="number">0</span>, is_causal=<span class="literal">True</span>)  </span><br><span class="line">        <span class="keyword">else</span>:  </span><br><span class="line">            <span class="comment"># manual implementation of attention  </span></span><br><span class="line">            att = (q @ k.transpose(-<span class="number">2</span>, -<span class="number">1</span>)) * (<span class="number">1.0</span> / math.sqrt(k.size(-<span class="number">1</span>))) <span class="comment"># 取k的转置再在k的最后一维hs开方  </span></span><br><span class="line">            att = att.masked_fill(<span class="variable language_">self</span>.bias[:,:,:T,:T] == <span class="number">0</span>, <span class="built_in">float</span>(<span class="string">&#x27;-inf&#x27;</span>))  </span><br><span class="line">            att = F.softmax(att, dim=-<span class="number">1</span>)  </span><br><span class="line">            att = <span class="variable language_">self</span>.attn_dropout(att)  </span><br><span class="line">            y = att @ v <span class="comment"># (B, nh, T, T) x (B, nh, T, hs) -&gt; (B, nh, T, hs)  </span></span><br><span class="line">        y = y.transpose(<span class="number">1</span>, <span class="number">2</span>).contiguous().view(B, T, C) <span class="comment"># re-assemble all head outputs side by side  </span></span><br><span class="line">  </span><br><span class="line">        <span class="comment"># output projection</span></span><br><span class="line">        y = <span class="variable language_">self</span>.resid_dropout(<span class="variable language_">self</span>.c_proj(y))</span><br><span class="line">        <span class="keyword">return</span> y</span><br></pre></td></tr></table></figure>
+<p>在见到这里，我们要做的就是庖丁解牛，研究因果注意力又能分为什么部分，每个部分又要什么参数。我在刚接触项目的时候常常自责，自己为什么不能一开始就想好了所有参数在初始化的时候直接全部传入。在代码写多了之后我才知道，很多时候这些参数都是在写到那一段的时候，发现缺少了这个参数就不能做了，于是在初始化的时候传入。因此，我们可以把类的初始化看作古早C语言的参数定义一样，程序员不过是拆除了爬上来时的脚手架，而我们不应该为自己不会展翅高飞而烦恼。</p>
+<p>我最终在诗云项目的因果注意力复现是这样的</p>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">class</span> <span class="title class_">CausalAttention</span>(nn.Module):  </span><br><span class="line">    <span class="keyword">def</span> <span class="title function_">__init__</span>(<span class="params">self, config</span>):  </span><br><span class="line">        <span class="built_in">super</span>().__init__()  </span><br><span class="line">        <span class="variable language_">self</span>.config = config  </span><br><span class="line">  </span><br><span class="line">        <span class="keyword">assert</span> <span class="variable language_">self</span>.config.n_embed % <span class="variable language_">self</span>.config.n_head == <span class="number">0</span>  </span><br><span class="line">  </span><br><span class="line">        <span class="variable language_">self</span>.hs = <span class="variable language_">self</span>.config.n_embed // <span class="variable language_">self</span>.config.n_head  </span><br><span class="line">        <span class="variable language_">self</span>.attn_dropout = nn.Dropout(<span class="variable language_">self</span>.config.dropout)  </span><br><span class="line">        <span class="variable language_">self</span>.resid_dropout = nn.Dropout(<span class="variable language_">self</span>.config.dropout)  </span><br><span class="line">        <span class="variable language_">self</span>.c_attn = nn.Linear(<span class="variable language_">self</span>.config.n_embed, <span class="number">3</span> * <span class="variable language_">self</span>.config.n_embed)  </span><br><span class="line">        <span class="variable language_">self</span>.c_proj = nn.Linear(<span class="variable language_">self</span>.config.n_embed, <span class="variable language_">self</span>.config.n_embed)  </span><br><span class="line">  </span><br><span class="line">        <span class="variable language_">self</span>.register_buffer(<span class="string">&quot;mask&quot;</span>,  </span><br><span class="line">                             torch.tril(torch.ones(<span class="variable language_">self</span>.config.block_size, <span class="variable language_">self</span>.config.block_size, dtype = torch.<span class="built_in">bool</span>).view(<span class="number">1</span>, <span class="number">1</span>, <span class="variable language_">self</span>.config.block_size, <span class="variable language_">self</span>.config.block_size)))  </span><br><span class="line">  </span><br><span class="line">    <span class="keyword">def</span> <span class="title function_">forward</span>(<span class="params">self, <span class="built_in">input</span></span>):  </span><br><span class="line">        B, T, C = <span class="built_in">input</span>.shape  </span><br><span class="line">  </span><br><span class="line">        q, k, v = <span class="variable language_">self</span>.c_attn(<span class="built_in">input</span>).split(<span class="variable language_">self</span>.config.n_embed, dim = -<span class="number">1</span>)  </span><br><span class="line">        q_h = q.view(B, T, <span class="variable language_">self</span>.config.n_head, C // <span class="variable language_">self</span>.config.n_head).transpose(<span class="number">1</span>, <span class="number">2</span>)  </span><br><span class="line">        k_h = k.view(B, T, <span class="variable language_">self</span>.config.n_head, C // <span class="variable language_">self</span>.config.n_head).transpose(<span class="number">1</span>, <span class="number">2</span>)  </span><br><span class="line">        v_h = v.view(B, T, <span class="variable language_">self</span>.config.n_head, C // <span class="variable language_">self</span>.config.n_head).transpose(<span class="number">1</span>, <span class="number">2</span>)  </span><br><span class="line">  </span><br><span class="line">        att = q_h @ k_h.transpose(-<span class="number">1</span>, -<span class="number">2</span>) / (<span class="variable language_">self</span>.hs ** <span class="number">0.5</span>)  </span><br><span class="line">        att = <span class="variable language_">self</span>.attn_dropout(att)  </span><br><span class="line">        att = att.masked_fill(<span class="variable language_">self</span>.mask[:, :, :T, :T] == <span class="number">0</span>, <span class="built_in">float</span>(<span class="string">&quot;-inf&quot;</span>))  </span><br><span class="line">        att = F.softmax(att, dim = -<span class="number">1</span>)  </span><br><span class="line">  </span><br><span class="line">        y = att @ v_h  </span><br><span class="line">        y = y.transpose(<span class="number">1</span>, <span class="number">2</span>).reshape(B, T, C)  </span><br><span class="line">        y = <span class="variable language_">self</span>.resid_dropout(<span class="variable language_">self</span>.c_proj(y))  </span><br><span class="line">  </span><br><span class="line">        <span class="keyword">return</span> y</span><br></pre></td></tr></table></figure>
+
+<p>更多代码详见我的 GitHub 仓库：<a target="_blank" rel="noopener" href="https://github.com/zhy-fnn/-The-Poetry-Cloud">zhy-fnn&#x2F;-The-Poetry-Cloud: nanoGPT 同类型复现</a>。</p>
+<p>可以说差别不是很大，唯一的重大区别就是nanoGPT里面用了flash attention加快运算，而我就只用了最基础的张量计算方式。这是因为我现在在学习的CS336课程里有对flash attention的复现和论文精读要求，我在这里再写一遍不只是重复造轮子了，而是重复造轮子的轮子了。</p>
+<p>所以我们在学习新项目的时候也要考虑到之后自己的学习规划，如果之后要学的更深，甚至就是核心环节，那现在的学习就只要看懂了就行。</p>
+<p>按照这个从重要到次要的顺序，我们摸完了一个项目的核心模块，这时我们应该能说清楚这个项目到底在干什么了，我们不要复读一遍之前的项目，把它fork了以后掩耳盗铃般当作自己的project，应该想想我能在此基础上有什么改进，或者有什么更贴合我自身的想法。这也很像科研时的novel或者surprise（doge）。</p>
+<h2 id="变式"><a href="#变式" class="headerlink" title="变式"></a>变式</h2><p>想做诗云项目而不是单纯复现nanoGPT的初衷很简单，我想把我做出来的东西给其他人看， 让别人看得懂。如果只是做莎士比亚的古英语训练，产出不仅周围的人看不懂，我也看不懂，我就没有做它的动力。再加上单纯的古英语训练我没有明确的指标判断模型是好是坏，而古诗的基本判断我们都了解，像什么格律，押韵，对仗之类的。所以我们对模型好坏的判断能不仅限于val_loss的高低。</p>
+<h3 id="数据"><a href="#数据" class="headerlink" title="数据"></a>数据</h3><p>数据是我面临的第一道坎，由于nanoGPT已经做好了莎士比亚的数据集，因此如果单纯复现nanoGPT就不需要考虑这些，而我们这次的目标是通过学习nanoGPT提升自己的工程能力，因此数据集的准备和清洗也是必要的。</p>
+<p>这里我一开始用的是全唐诗的律诗部分，因为自己算力和时间不够，就没有未清洗的数据和清洗后数据的对比，我直接用了清洗后的数据。清洗规则一是去重，把一样的诗都去掉，避免小模型只学会了特定的句子而不能写出自己的诗；二是去长，把过长的诗清洗掉；三是选择出律诗。</p>
+<p>数据格式如下：</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">&lt;标题&gt;&lt;作者&gt;</span><br><span class="line">&lt;正文&gt;</span><br></pre></td></tr></table></figure>
+
+<p>最后得到了 22,340 首律诗，一共约 157 万 token，因为诗的格式比较简单，所以我就直接用了 char-level tokenizer，至于 BPE，我会在 CS336 系列讲。</p>
+<p>这是我的 v1 版本数据集。之后迭代的原因我总结为我太冒进，或者说对 scaling law 了解不多。这可能是大多数初学者的通病：我认为模型越大它的能力就越大，于是我在 157 万 token、约 3 MB 的数据上想要训练 28M 的模型，这就导致了它很快过拟合了。并且模型只学会了律诗的格式，但完全不知道语义。况且稳定性也不好，就算 temperature 做得很低，top_k 定得很大（40）也总是只输出一个就结束了。这就是 v1 训练集的训练效果：</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><span class="line">，</span><br><span class="line">上，。</span><br><span class="line">，，，</span><br><span class="line">春月不</span><br><span class="line"></span><br><span class="line">陽寒無花風，高草人爲知。</span><br><span class="line">與聲不春是，青來山中君。</span><br><span class="line">時十天如清，應自詩行此。</span><br><span class="line">來有白客一，三高未玉有。</span><br></pre></td></tr></table></figure>
+
+<p>但是在模型真的生成出完整但没有语义的诗的时候，我真的不由自主地在图书馆热泪盈眶，我知道，我在学习一个能改变世界的学科，我在做能生成“现实”的工作。</p>
+<p>因为过早过拟合，模型还什么都没学会，于是在数据集上就要开始优化。</p>
+<p>我先是在没事干让模型写诗玩的时候意外注意到28M的模型提示词中的作者不敏感，因此在第二次构建数据集的时候我特意略去了作者。为了扩大数据集，我收集了唐诗、宋诗里面的律诗和绝句，把他们按照另一种格式：</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">&lt;体裁&gt;&lt;标题&gt;</span><br><span class="line">&lt;正文&gt;</span><br></pre></td></tr></table></figure>
+<p>之后根据体裁和标题分类，做好数据标注，开始了又一次训练。这就是我的 v3 数据集：127,284 首诗，9,478,840 个 token，训练集 18.96 MB。尽管对于 28M 参数的模型来讲还是杯水车薪，但是效果已经比之前的要好了。</p>
+<h3 id="调整"><a href="#调整" class="headerlink" title="调整"></a>调整</h3><p>新训练出来的模型效果确实比原来的好很多，却依旧遇到了过拟合的现象。在10500步的时候val_loss最低，之后逐渐升高，而train_loss却一直在降。</p>
+<p><img src="/images/poetry-cloud/loss_curve_pretrain_train_val.png" alt="预训练 train / val loss 曲线"></p>
+<p>我把最好的模型生成的诗给 DeepSeek，她又对诗提出了新的要求，这些诗大多都不符合格律，只有小部分在运气好的时候能够押韵，这就是实际的效果：</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br></pre></td><td class="code"><pre><span class="line">--- 溫泉 第 1 首 ---</span><br><span class="line">夜靜寒深綠色深，秋來不到雪如風。</span><br><span class="line">莫憐明日無人說，滿斷梅花有路中。</span><br><span class="line"></span><br><span class="line"></span><br><span class="line">--- 溫泉 第 2 首 ---</span><br><span class="line">玉蓋花開綠色開，小頭無限過山房。</span><br><span class="line">更憐無事知無事，爲是人間似不歸。</span><br><span class="line"></span><br><span class="line"></span><br><span class="line">--- 溫泉 第 3 首 ---</span><br><span class="line">長安身少何，千里共誰隨。</span><br><span class="line">未作梅花下，將看有此還。</span><br></pre></td></tr></table></figure>
+<p>这时我开始接触到后训练的一些方法，像SFT，RLHF……为了让模型能学会格律，准备用最简单最普遍的SFT（监督式微调）来训练一下。</p>
+<p>又是训练，那就要构建数据集，我就又写了一个过滤程序，以 DeepSeek 从网上收集的平水韵为基准，如果押韵就留下，不押韵就丢弃，最后得到了一组 SFT 训练集。这里面的诗都严格押尾韵，并且经过了去重处理，选出了 20,000 首诗，约 2.5 MB。</p>
+<p>说白了，SFT 就是精选好题让模型按照预训练的套路再跑几步，我训练下来在 SFT 的时候 val_loss 确实在降。</p>
+<p><img src="/images/poetry-cloud/loss_curve_sft_train_val.png" alt="SFT train / val loss 曲线"></p>
+<p>但生成出来的诗效果不明显，和预训练的模型打得有来有回。这么小规模的 SFT 没有让模型学到押韵的方法。也可以说这么小规模的提升不足以抵消生成时的噪音对模型的影响，因此看不出显著的提升。</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br></pre></td><td class="code"><pre><span class="line">《温泉》其一 </span><br><span class="line">夜靜寒深綠色深，秋來不到雪如風。  </span><br><span class="line">莫憐明日無人說，滿斷梅花有路中。</span><br><span class="line"></span><br><span class="line">《温泉》其二  </span><br><span class="line">欲惜花開早，翻然花上來。  </span><br><span class="line">無因將上酒，無奈是年時。</span><br><span class="line"></span><br><span class="line">《温泉》其三  </span><br><span class="line">長安身少何，千里共誰隨。  </span><br><span class="line">未作梅花下，將看有此還。</span><br></pre></td></tr></table></figure>
+
+<h3 id="释怀"><a href="#释怀" class="headerlink" title="释怀"></a>释怀</h3><p>做到这我已经有点释怀了。这时，诗云我已经做了两周了，并且下一周就是期中考试，我之后一定没有时间再搞诗云了。但尽管如此，我还是有针对诗这个特定文学格式的优化方法。</p>
+<p>诗，一定要押韵。</p>
+<p>所以我直接生成多首诗，选出押韵的哪一首不就行了？这就是 best-of-N 的思路：先生成多个候选，再按规则或评分器从中选优。它和 ensemble 并不完全一样；Transformer 论文里说的 ensemble 是多个模型结果的集成，而这里筛的是同一个模型的多个输出。这也是我最后的努力了。还好，诗云输出的诗终于像样了，只不过这是以牺牲算力为代价的：</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br></pre></td><td class="code"><pre><span class="line">温泉</span><br><span class="line">千百重來幾日天，年朝時日共相催。</span><br><span class="line">從心不是西湖去，留得江山不似來。</span><br><span class="line"></span><br><span class="line">秋夜</span><br><span class="line">花吹清雨白雲寒，日滿秋花半照香。</span><br><span class="line">小草滿花天影過，斷簷飛絮野帆陽。</span><br><span class="line"></span><br><span class="line">送别</span><br><span class="line">人間老我醉，有子又相親。</span><br><span class="line">老處無人住，吾情獨白人。</span><br><span class="line"></span><br><span class="line">山行</span><br><span class="line">空園何處去西山，天樹高樓憶月凉。</span><br><span class="line">欲恐江山上天去，此來春在白雲行。</span><br></pre></td></tr></table></figure>
+
+<p>做完这个，诗云的模型部分就基本结束了。我的感想和梁文峰在一次论坛上透露出来的一样，数据的收集和清洗有时候比模型架构更难做。以我为例，我从零搭建 Transformer 用了两天，但光是做 v1 的数据集就用了 2 天，更别说做 v3 的最终版和 SFT 数据集了。</p>
+<h2 id="工程"><a href="#工程" class="headerlink" title="工程"></a>工程</h2><p>我们一开始做这个项目的目的是什么？提高自己的工程能力。为什么要靠做项目？因为学校的作业像算法题或者简单demo没有办法提升我们的代码管理能力和文件管理能力，就比如一般的算法题取变量名都是能用就行越简单越好，而在实际的工程里面，你取简单的名字不仅会降低可读性，还会和更基本的名称冲突，就比如你做了一个带有rope的attention，结果就直接取名为Attention，这很可能就会和原本的注意力机制冲突。况且学校的作业文件大多数都是扁平的一个文件夹走天下，而正常的项目都是要分组的：资源、产出、代码都要分开，这样才好管理，而只在学校里学习是很难接触到这些的。</p>
+<p>还有更重要的，学校里我们写代码的目的都是为了完成作业，换句话说是为了我们自己。但是正常的项目肯定不是自娱自乐，而是要给其他人看，给其他人用的。那么和用户对话的想法就很重要。比如学校里几乎没有作业要求提交的时候写README，把项目介绍和用法写上，因为学校的任务是固定的，而真实的项目是无限的，所以我们要让看到项目的用户知道这是用来解决什么问题的，他能用这个项目干什么。</p>
+<p>说了这么多，核心就是写项目不能只想着自己（你真的是满脑子都只想着自己呢.jpg），因此要有类似于CLI或者UI的东西，你不能指望别人每次用这个项目的时候都要打开VScode或者pycharm这些IDE，况且文件的引用地址要变成相对的。由此，第一次做项目的我就补了这些技术栈。</p>
+<p>相对路径：</p>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">from</span> pathlib <span class="keyword">import</span> Path</span><br><span class="line">ROOT = Path(__file__).resolve().parent  <span class="comment"># 基于脚本位置构造路径</span></span><br><span class="line">OUT = ROOT / <span class="string">&quot;out&quot;</span> / <span class="string">&quot;best_of_n&quot;</span></span><br></pre></td></tr></table></figure>
+<p>CLI：</p>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">import</span> argparse</span><br><span class="line"><span class="keyword">def</span> <span class="title function_">build_parser</span>():  </span><br><span class="line">    parse = argparse.ArgumentParser(prog = <span class="string">&quot;cli&quot;</span>, description = <span class="string">&quot;诗云的命令行入口&quot;</span>)  </span><br><span class="line">    parse.add_argument(<span class="string">&quot;--version&quot;</span>, action = <span class="string">&quot;version&quot;</span>, version = <span class="string">&quot;v0.1&quot;</span>)  </span><br><span class="line">    sub = parse.add_subparsers(dest = <span class="string">&quot;cmd&quot;</span>, required = <span class="literal">True</span>)</span><br><span class="line">    </span><br><span class="line">    <span class="comment"># ...</span></span><br><span class="line">    </span><br><span class="line">    <span class="keyword">return</span> parse</span><br></pre></td></tr></table></figure>
+<p>具体的实现可以上我的 GitHub 主页（<a target="_blank" rel="noopener" href="https://github.com/zhy-fnn/-The-Poetry-Cloud">zhy-fnn&#x2F;-The-Poetry-Cloud: nanoGPT 同类型复现</a>）看。</p>
+<h2 id="改进"><a href="#改进" class="headerlink" title="改进"></a>改进</h2><blockquote>
+<p>完成比完美更重要</p>
+</blockquote>
+<p>其实这个项目的制作流程有很多可以改进的地方，但是都受限于当时的知识水平，导致我如果再回到三周前也没什么办法做得更好了。</p>
+<p>第一点就是我模型的参数量太大了，当时没有看过LLaMA1的论文，不知道在小模型上训练大数据也能取得SOTA的成绩，于是就一心只想训练大模型，从原本计划的10M提到28M，这就导致模型很容易过拟合，原定的训练20000步结果10500步就过拟合了，如果再让我做一次，我肯定会定小参数在大数据训练，这样就能有效地训练更多步数了。</p>
+<p>第二点是一开始我没有计划好我的项目地图应该是什么样的，最终效果应该是什么样的，就造成了水多加面，面多加水的情况。看到 v1 数据集训练的模型不合预期，就用更大的数据训更大的模型；新模型又不及预期，于是做押韵筛选的脚本，筛选 SFT 数据集；SFT 模型又不及预期，于是做 best-of-N，结果文件夹成了垃圾堆，什么脚本都在里面，重点也不是很突出。当前仓库的实际目录如下（省略 <code>.git/</code>、<code>.idea/</code>、<code>.venv/</code>、<code>__pycache__/</code> 以及逐 step 生成的样本文件）：</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br><span class="line">56</span><br><span class="line">57</span><br><span class="line">58</span><br><span class="line">59</span><br><span class="line">60</span><br><span class="line">61</span><br><span class="line">62</span><br><span class="line">63</span><br><span class="line">64</span><br><span class="line">65</span><br><span class="line">66</span><br><span class="line">67</span><br><span class="line">68</span><br><span class="line">69</span><br><span class="line">70</span><br><span class="line">71</span><br><span class="line">72</span><br><span class="line">73</span><br><span class="line">74</span><br><span class="line">75</span><br><span class="line">76</span><br><span class="line">77</span><br><span class="line">78</span><br><span class="line">79</span><br><span class="line">80</span><br><span class="line">81</span><br><span class="line">82</span><br><span class="line">83</span><br><span class="line">84</span><br><span class="line">85</span><br><span class="line">86</span><br><span class="line">87</span><br><span class="line">88</span><br><span class="line">89</span><br><span class="line">90</span><br><span class="line">91</span><br><span class="line">92</span><br><span class="line">93</span><br><span class="line">94</span><br><span class="line">95</span><br><span class="line">96</span><br><span class="line">97</span><br><span class="line">98</span><br><span class="line">99</span><br><span class="line">100</span><br><span class="line">101</span><br><span class="line">102</span><br></pre></td><td class="code"><pre><span class="line">the poetry cloud/</span><br><span class="line">├─ .gitignore</span><br><span class="line">├─ README.md</span><br><span class="line">├─ requirements.txt</span><br><span class="line">├─ 诗云.md</span><br><span class="line">├─ CLI.py                    # 命令行入口</span><br><span class="line">├─ best_of_N.py              # 多候选生成与筛选</span><br><span class="line">├─ dryrun.py                 # 快速试跑</span><br><span class="line">├─ eval_compare.py           # 预训练 / SFT 模型对比评测</span><br><span class="line">├─ load.py                   # 模型加载</span><br><span class="line">├─ model.py                  # GPT 模型</span><br><span class="line">├─ rhythm.py                 # 格律与押韵检查</span><br><span class="line">├─ sample.py                 # 单次生成</span><br><span class="line">├─ sample_report_v3.py       # v3 采样报告</span><br><span class="line">├─ test_c4.py                # C4 数据相关测试</span><br><span class="line">├─ tokenizer.py              # 字符级分词</span><br><span class="line">├─ train.py                  # 预训练</span><br><span class="line">├─ train_sft.py              # SFT 训练</span><br><span class="line">├─ archive/</span><br><span class="line">│  └─ 2026-10-31/</span><br><span class="line">│     ├─ poetry_char_v2/         # meta.pkl, train.bin, val.bin</span><br><span class="line">│     ├─ poetry_cloud_upload/    # 旧版可上传代码与 data/</span><br><span class="line">│     ├─ smoke50/                # 小规模试跑产物</span><br><span class="line">│     ├─ v2/                     # v2 模型与训练产物</span><br><span class="line">│     └─ poetry_cloud_sft_final.tar.gz</span><br><span class="line">├─ data/</span><br><span class="line">│  ├─ 全唐诗/</span><br><span class="line">│  │  ├─ authors.tang.json</span><br><span class="line">│  │  ├─ authors.song.json</span><br><span class="line">│  │  ├─ poet.tang.*.json        # 58 个唐诗分片</span><br><span class="line">│  │  ├─ poet.song.*.json        # 255 个宋诗分片</span><br><span class="line">│  │  ├─ 唐诗三百首.json</span><br><span class="line">│  │  ├─ 唐诗补录.json</span><br><span class="line">│  │  ├─ 表面结构字.json</span><br><span class="line">│  │  ├─ README.md</span><br><span class="line">│  │  └─ error/                  # 315 个解析失败记录</span><br><span class="line">│  ├─ poetry_char_v2/</span><br><span class="line">│  │  └─ meta.pkl</span><br><span class="line">│  ├─ poetry_char_v3/</span><br><span class="line">│  │  ├─ meta.pkl</span><br><span class="line">│  │  ├─ train.bin</span><br><span class="line">│  │  ├─ val.bin</span><br><span class="line">│  │  ├─ yun.json</span><br><span class="line">│  │  ├─ yun_trad.json</span><br><span class="line">│  │  └─ yun_trad_report.txt</span><br><span class="line">│  └─ poetry_sft_v1/</span><br><span class="line">│     ├─ meta.pkl</span><br><span class="line">│     ├─ sft_manifest.json</span><br><span class="line">│     ├─ train.bin</span><br><span class="line">│     └─ val.bin</span><br><span class="line">├─ dist/</span><br><span class="line">│  └─ poetry-cloud-runtime-data-v0.1.0.zip</span><br><span class="line">├─ docs/</span><br><span class="line">│  ├─ architecture.png</span><br><span class="line">│  ├─ architecture.svg</span><br><span class="line">│  └─ images/</span><br><span class="line">│     └─ poetry_cloud/</span><br><span class="line">│        ├─ transformer-architecture.png</span><br><span class="line">│        ├─ tech_stack.png</span><br><span class="line">│        ├─ loss_curve_pretrain_train_val.png</span><br><span class="line">│        └─ loss_curve_sft_train_val.png</span><br><span class="line">└─ out/</span><br><span class="line">   ├─ best_of_n/</span><br><span class="line">   │  ├─ candidates.jsonl</span><br><span class="line">   │  ├─ gallery.md</span><br><span class="line">   │  ├─ smoke.jsonl</span><br><span class="line">   │  └─ summary.json</span><br><span class="line">   ├─ best_of_n_smoke/</span><br><span class="line">   │  └─ smoke.jsonl</span><br><span class="line">   ├─ eval/</span><br><span class="line">   │  ├─ compare_5x2.txt</span><br><span class="line">   │  ├─ eval_report.md</span><br><span class="line">   │  ├─ pretrain_stats.json</span><br><span class="line">   │  └─ sft_stats.json</span><br><span class="line">   ├─ pretrain/</span><br><span class="line">   │  ├─ ckpt/</span><br><span class="line">   │  │  ├─ ckptbest.pt</span><br><span class="line">   │  │  └─ ckptnormal.pt</span><br><span class="line">   │  ├─ eval/</span><br><span class="line">   │  │  ├─ baseline_shanxing_lvshi.txt</span><br><span class="line">   │  │  ├─ baseline_wenquan_jueju.txt</span><br><span class="line">   │  │  ├─ ckptbest.sha256</span><br><span class="line">   │  │  ├─ ckptbest_info.txt</span><br><span class="line">   │  │  ├─ metrics_pretrain_v3.csv</span><br><span class="line">   │  │  └─ train_pretrain_v3.log</span><br><span class="line">   │  ├─ samples/</span><br><span class="line">   │  │  └─ step_*.txt</span><br><span class="line">   │  ├─ c3_manual_20.txt</span><br><span class="line">   │  ├─ c3_sample_ids.json</span><br><span class="line">   │  ├─ c3_sample_report.json</span><br><span class="line">   │  ├─ eval_pretrain_v3.tar.gz</span><br><span class="line">   │  ├─ loss_curve_train_val.png</span><br><span class="line">   │  ├─ metrics.csv</span><br><span class="line">   │  └─ train.log</span><br><span class="line">   └─ sft/</span><br><span class="line">      ├─ ckpt/</span><br><span class="line">      │  └─ ckptbest.pt</span><br><span class="line">      ├─ samples/</span><br><span class="line">      │  └─ step_*.txt</span><br><span class="line">      ├─ loss_curve_train_val.png</span><br><span class="line">      ├─ metrics.csv</span><br><span class="line">      └─ train_sft.log</span><br></pre></td></tr></table></figure>
+
+<p>况且很多脚本还有重复，就像train.py和train_sft.py这两个其实本质差别不大。</p>
+<p>第三点就是时间太赶了，导致我项目注释写得很少，我现在还不了解真的项目里写注释的流程是什么样的，但我因为做完诗云的下一周就是期中考试，不得不急速冲刺做完诗云，于是项目的可读性做的很差，和真正的nanoGPT的注释完全没法比，这也是我之后改进的一个方面。</p>
+<h2 id="判断"><a href="#判断" class="headerlink" title="判断"></a>判断</h2><p>优秀的学生就要敢于下判断！（doge）</p>
+<p>我觉得人工智能领域工程比学术走得更远，在学术界想出一个idea很可能工程界有更强的算力，更多的人手，用更少的时间就把这个idea做完了。也就是说，很可能我们研究人员在做的已经是工程界缝隙中流出来的汤了。但即便如此，学术还是有超过工程的地方：因为大公司训练模型常常追求投产比，这就让他们比较保守，如果一个方法能work，那么就会有无数人延续这个方法，所谓创新也很可能是在小地方做小改动，或者直接scale-up就算创新了，反正能力确实因此提高了。总之，工程界存在损失厌恶，那在学术界，我们应该做的事就是去承担创新的风险，去做他们不敢做的事，如果不这样，学术界不就成了小号的工业界，那它的特点在哪里？</p>
+<p>故事的最后，我想把一句话献给大家，这是我高二语文老师一直挂在嘴边的一句：</p>
+<p><strong>夫夷以近，则游者众；险以远，则至者少。而世之奇伟、瑰怪、非常之观，常在于险远，而人之所罕至也，故非有志者不能至也。 ——游褒禅山记</strong></p>
+
+    </div>
+
+    
+    
+    
+
+    <footer class="post-footer">
+          <div class="post-tags">
+              <a href="/tags/%E6%9C%BA%E5%99%A8%E5%AD%A6%E4%B9%A0/" rel="tag"># 机器学习</a>
+              <a href="/tags/nanoGPT/" rel="tag"># nanoGPT</a>
+              <a href="/tags/PyTorch/" rel="tag"># PyTorch</a>
+              <a href="/tags/%E5%8F%A4%E8%AF%97%E7%94%9F%E6%88%90/" rel="tag"># 古诗生成</a>
+              <a href="/tags/%E9%A1%B9%E7%9B%AE%E5%A4%8D%E7%9B%98/" rel="tag"># 项目复盘</a>
+          </div>
+
+        
+
+          <div class="post-nav">
+            <div class="post-nav-item">
+                <a href="/2026/10/18/transformer-paper-reading/" rel="prev" title="登神长阶：Transformer 论文精读">
+                  <i class="fa fa-angle-left"></i> 登神长阶：Transformer 论文精读
+                </a>
+            </div>
+            <div class="post-nav-item">
+            </div>
+          </div>
+    </footer>
+  </article>
+</div>
+
+
+
+
+
+
+</div>
+  </main>
+
+  <footer class="footer">
+    <div class="footer-inner">
+
+  <div class="copyright">
+    &copy; 
+    <span itemprop="copyrightYear">2026</span>
+    <span class="with-love">
+      <i class="fa fa-heart"></i>
+    </span>
+    <span class="author" itemprop="copyrightHolder">zhy-fnn</span>
+  </div>
+  <div class="powered-by">由 <a href="https://hexo.io/" rel="noopener" target="_blank">Hexo</a> & <a href="https://theme-next.js.org/" rel="noopener" target="_blank">NexT.Gemini</a> 强力驱动
+  </div>
+
+    </div>
+  </footer>
+
+  
+  <div class="toggle sidebar-toggle" role="button">
+    <span class="toggle-line"></span>
+    <span class="toggle-line"></span>
+    <span class="toggle-line"></span>
+  </div>
+  <div class="sidebar-dimmer"></div>
+  <div class="back-to-top" role="button" aria-label="返回顶部">
+    <i class="fa fa-arrow-up fa-lg"></i>
+    <span>0%</span>
+  </div>
+
+<noscript>
+  <div class="noscript-warning">Theme NexT works best with JavaScript enabled</div>
+</noscript>
+
+</body>
+</html>
